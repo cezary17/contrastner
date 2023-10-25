@@ -1,8 +1,9 @@
 import torch.cuda
 from datasets import load_dataset
-from transformers import AutoTokenizer, DataCollatorForTokenClassification, AutoModelForTokenClassification, TrainingArguments, Trainer
+from transformers import AutoTokenizer, DataCollatorForTokenClassification, AutoModelForTokenClassification, TrainingArguments, Trainer, pipeline
 import evaluate
 import numpy as np
+import argparse
 
 tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
 wnut = load_dataset("wnut_17")
@@ -85,7 +86,7 @@ def compute_metrics(p):
     }
 
 
-def main():
+def train_main():
     print(f"CUDA AVAILABLE: {torch.cuda.is_available()}")
     tokenized_wnut = wnut.map(tokenize_and_align_labels, batched=True)
     # example = wnut["train"][0]
@@ -121,5 +122,22 @@ def main():
     trainer.train()
 
 
+def inference_main():
+    text = "The Golden State Warriors are an American professional basketball team based in San Francisco."
+    classifier = pipeline("ner", model="stevhliu/my_awesome_wnut_model")
+    model_output = classifier(text)
+    for token in model_output:
+        print(token, "\n")
+
+
 if __name__ == "__main__":
-    main()
+
+    argparse = argparse.ArgumentParser()
+    argparse.add_argument("-i", "--inference", action="store_true")
+
+    args = argparse.parse_args()
+
+    if args.inference:
+        inference_main()
+    else:
+        train_main()
