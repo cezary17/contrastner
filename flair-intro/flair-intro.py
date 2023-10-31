@@ -4,8 +4,7 @@ from flair.models import SequenceTagger
 from flair.trainers import ModelTrainer
 
 # 1. get the corpus
-corpus = CONLL_03()  # bruh why tf does this not download the dataset am i supposed to send a pdf form to NIST to get
-# the fucking reuters corpora datashit
+corpus = CONLL_03()
 print(corpus)
 
 # 2. what label do we want to predict?
@@ -44,4 +43,5 @@ trainer.fine_tune(
     learning_rate=5.0e-6,
     mini_batch_size=4,
     # mini_batch_chunk_size=1,  # remove this parameter to speed up computation if you have a big GPU
+    max_epochs=2,
 )
