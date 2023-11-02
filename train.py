@@ -20,6 +20,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    print(args)
+
     # TODO: Implement datasets you want to use.
     # TODO: Downsample the dataset (train and validation split) with .downsample()
     if args.dataset == "CONLL03":
