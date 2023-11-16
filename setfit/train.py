@@ -1,11 +1,11 @@
 import argparse
 
 from flair.datasets import CONLL_03
-from flair.models import WordTagger
+from flair.models import TokenClassifier
 from flair.embeddings import TransformerWordEmbeddings
 from flair.trainers import ModelTrainer
 
-from modeling import SetFitDecoder
+from setfit.modeling import SetFitDecoder, SFTokenClassifier
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -20,8 +20,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    print(args)
-
     # TODO: Implement datasets you want to use.
     # TODO: Downsample the dataset (train and validation split) with .downsample()
     if args.dataset == "CONLL03":
@@ -35,15 +33,22 @@ if __name__ == "__main__":
     embeddings = TransformerWordEmbeddings(args.transformer_model)
 
     # TODO: 1st step: Implement SetFit Contrastive Pre-Training. Possible Implementations:
-    # TODO: 1) You could try flair's decoder argument - Implement a pytorch module that does the first step of SetFit (contrasting entities with each other). See example in modeling.py.
+    # TODO: 1) You could try flair's decoder argument - Implement a pytorch module that does the first step of SetFit
+    #  (contrasting entities with each other). See example in modeling.py.
+
     # TODO: 2) Write a new model that inherits from flair.models.Model.
-    # TODO: You need to build the entity pairs and contrast them, save the encoder, but you do not need to perform final evaluation. This comes in the second step.
+
+    # TODO: You need to build the entity pairs and contrast them, save the encoder,
+    #  but you do not need to perform final evaluation. This comes in the second step.
+
     # TODO: You can do so by deleting the test and dev split from Corpus instance
-    setfit_decoder = SetFitDecoder()
-    model = WordTagger(
-        embeddings,
-        label_dictionary,
-        tag_type=args.tag_type,
+
+    setfit_decoder = SetFitDecoder(label_dictionary=label_dictionary)
+
+    model = SFTokenClassifier(
+        embeddings=embeddings,
+        label_dictionary=label_dictionary,
+        label_type=args.label_type,
         decoder=setfit_decoder
     )
 
