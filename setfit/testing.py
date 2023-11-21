@@ -1,3 +1,5 @@
+import random
+
 from modeling import SetFitDecoder
 from flair.datasets import CONLL_03
 
@@ -13,9 +15,12 @@ setfit = SetFitDecoder(label_dictionary=label_dictionary)
 
 print(one_example)
 
-ner_labels = setfit._extract_named_entities(one_example)
+labels = one_example.to_dict(tag_type="ner")
 
-for label in ner_labels:
-    print(label)
-    print(label.data_point.unlabeled_identifier)
-    print(label.value)
+possible_labels = ["LOC", "PER", "ORG", "MISC", "O"]
+test_labels = [random.choice(possible_labels) for _ in range(10)]
+
+ner_labels = setfit._make_entity_triplets(labels=test_labels)
+
+for label, l in ner_labels.items():
+    print(f"{label}: {l}")

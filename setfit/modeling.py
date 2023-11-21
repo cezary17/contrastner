@@ -2,11 +2,25 @@ import typing
 from typing import List, Tuple
 
 import flair
-import numpy as np
 import torch
-from flair.data import Sentence, Dictionary, DT
+from flair.data import Dictionary, DT, Token, Label
 from flair.embeddings import TokenEmbeddings
 from flair.models import TokenClassifier
+
+'''
+TODO:
+1. Erstelle Key-Value / Dict mit Label: Tokens, z.B. {"PER": [token1, token2], ..., "O": [tokenN, ..., tokenX]}
+
+2. Forme Triplets aus diesem Dict. Beginn mit trivialer Idee: Forme für jeden Token im Batch ein Triplet
+    z.b. [(anchor: token1, pos: token2, neg: tokenX), ...]. Geht nur wenn mind. 2 Labels pro klasse vorhanden sind, 
+    da sonst kein positiv anchor. Negative einfach random aus allen anderen Labels.
+    
+3. Dann diese List durch torch.nn.TripletMarginLoss o. ä., können wir noch anpassen aber das ist erstmal der Standard.
+
+4. Return die Scores (negative distance) aus batch
+
+5. Train model mit 100 beispiele aus CoNLL
+'''
 
 
 class SFTokenClassifier(TokenClassifier):
@@ -33,7 +47,8 @@ class SFTokenClassifier(TokenClassifier):
 
     def forward_loss(self, sentences: List[DT]) -> Tuple[torch.Tensor, int]:
         # make a forward pass to produce embedded data points and labels
-        sentences = [sentence for sentence in sentences if self._filter_data_point(sentence)]
+        sentences = [
+            sentence for sentence in sentences if self._filter_data_point(sentence)]
 
         # get the data points for which to predict labels
         data_points = self._get_data_points_for_batch(sentences)
@@ -49,7 +64,7 @@ class SFTokenClassifier(TokenClassifier):
         data_point_tensor = self._encode_data_points(sentences, data_points)
 
         # HUGE CHANGES HERE!
-        scores = self.decoder(data_point_tensor, label_tensor)
+        scores = self.decoder(data_points=data_points, data_point_tensor=data_point_tensor)
 
         # an optional masking step (no masking in most cases)
         scores = self._mask_scores(scores, data_points)
@@ -60,7 +75,7 @@ class SFTokenClassifier(TokenClassifier):
 
 class SetFitDecoder(torch.nn.Module):
 
-    def __init__(self, fs_examples: list[Sentence] = None, label_dictionary: Dictionary = None, *args, **kwargs):
+    def __init__(self, label_dictionary: Dictionary, *args, **kwargs):
         """
         who even reads docstrings?
 
@@ -69,44 +84,88 @@ class SetFitDecoder(torch.nn.Module):
         :param kwargs:
         """
         super().__init__(*args, **kwargs)
-        self.fs_examples = fs_examples
         self.label_dictionary = label_dictionary
-        self.linear = torch.nn.Linear(768, 768)  # Just to throw you off that i know what i am doing
 
-    def forward(self, inputs: torch.Tensor, label_tensor: typing.Any):
+        label_list = self.label_dictionary.get_items()
+        label_list += ["O"]
+        self.label_list = label_list
+
+    def forward(self, data_points: list[Token], data_point_tensor: typing.Any):
+
+        # here until I figure out how to get the proper label
+        label_token_dict = self._make_label_token_dict(data_points)
+        print("I AM HERE TO HAVE SOMEWHERE TO BREAKPOINT")
+
+        return data_points
+
+    def _make_entity_triplets(self, labels: list[str], inputs: list[torch.Tensor] = None, k: int = 20):
         """
-        Should we really use this as a decoder module? If I understand what the decoder does in flair it is the last
-        layer before loss is calculated. I thought the setfit contrastive loss function should be the last thing before
-        the output to use the "shifted" vectors as embeddings for the "normal" fine-tuning.
+        This will get the entities from a sentence and return them as a list of tuples (entity, label, index)
 
-
-        QUESTION FOR MEETING TOMORROW
-
-        how to move vectors together/apart based on the groups
-
-        :param label_tensor: tags of the input
-        :param inputs: tensor of some shape
+        :param inputs:
+        :param labels:
+        :param k:
         :return:
         """
 
-        labels_in_order = ["bruh"] * len(label_tensor)
+        # Output format: [(anchor, (positive, negative)), ...]
 
-        # problem here -> label index is not (always) the same as the index from label_dictionary
-        for i, label_idx in enumerate(label_tensor):
-            temp = self.label_dictionary.get_item_for_index(label_idx)
-            labels_in_order[i] = temp
+        if inputs is None:
+            inputs = [torch.zeros(1) for _ in range(
+                len(labels))]  # just to have A tensor
 
-        return inputs
+        labels_dict = {label: [] for label in self.label_list}
 
-    def _extract_named_entities(self, sentence: Sentence):
+        for i, label in enumerate(labels):
+            labels_dict[label].append((i, inputs[i]))
+
+        return labels_dict
+
+    def _make_label_token_dict(self, data_points: list[Token]) -> dict[str, (int, list[torch.Tensor])]:
         """
-        This will get the Non-O entities from a sentence and return them as a list of tuples (entity, label, index)
+        This will get the input tensor batch and output a dictionary of the labels alongside their index and the
+        corresponding tensors
 
-        :param sentence:
-        :return:
+        :param data_points: list of data points (flair.data.Token) as seen in TokenClassifier forward loop
+        :return: A dict mapping the label to tensors having that label alongside it's index eg:
+            {
+                "LOC": [(0, Tensor1), (1, Tensor2)
+                "PER": [(2, Tensor3), (3, Tensor4)
+                ...
+            }
         """
-        ner_labels = sentence.get_labels("ner")
-        return ner_labels
 
-    def _make_entity_triplets(self, sentence_list: list[Sentence]):
-        pass
+        # Initialize dict of labels with labels found in label_dictionary
+        labels_dict = {label: []
+                       for label in self.label_dictionary.get_items()}
+        labels_dict["O"] = []
+
+        for dp_idx, dp in enumerate(data_points):
+
+            dp_label = dp.get_label("ner")
+
+            # Map to simple embeddings to get "LOC" from "S-LOC", ...
+            dp_simple_label = self._map_pos_labels(dp_label)
+
+            labels_dict[dp_simple_label].append((dp_idx, dp.embedding))
+
+        return labels_dict
+
+    def _map_pos_labels(self, label: Label) -> str:
+        """
+        Maybe possible that this function is redundant and flair provides the simple label somewhere
+        TODO: Ask Jonas
+
+        :param label: Label with positional information (start, inside, ...)
+        :return: Simple Label like "MISC" or "PER"
+        """
+        label_val = label.value
+
+        # labels have to start with "S" or "I" followed by "-" followed by the label itself
+        if label_val != "O":
+            label_val = label_val.split("-")[-1]
+
+        # sanity check for development
+        assert label_val in self.label_list
+
+        return label_val

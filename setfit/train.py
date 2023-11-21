@@ -62,10 +62,10 @@ if __name__ == "__main__":
     )
 
     # TODO: load the pre-trained encoder - only the encoder!
-    setfit_model = WordTagger.load(args.save_path)
+    setfit_model = TokenClassifier.load(args.save_path)
 
     # TODO: Implement 2nd phase: fine-tuning. This is standard procedure, you can re-use existing scripts.
-    model = WordTagger(
+    model = TokenClassifier(
         setfit_model.embeddings, # only use the contrastive pretrained encoder
         label_dictionary,
         tag_type=args.tag_type,
