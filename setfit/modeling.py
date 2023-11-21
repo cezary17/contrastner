@@ -10,6 +10,7 @@ from flair.models import TokenClassifier
 '''
 TODO:
 1. Erstelle Key-Value / Dict mit Label: Tokens, z.B. {"PER": [token1, token2], ..., "O": [tokenN, ..., tokenX]}
+    -> Funktion _make_label_token_dict
 
 2. Forme Triplets aus diesem Dict. Beginn mit trivialer Idee: Forme für jeden Token im Batch ein Triplet
     z.b. [(anchor: token1, pos: token2, neg: tokenX), ...]. Geht nur wenn mind. 2 Labels pro klasse vorhanden sind, 
@@ -92,13 +93,16 @@ class SetFitDecoder(torch.nn.Module):
 
     def forward(self, data_points: list[Token], data_point_tensor: typing.Any):
 
-        # here until I figure out how to get the proper label
         label_token_dict = self._make_label_token_dict(data_points)
         print("I AM HERE TO HAVE SOMEWHERE TO BREAKPOINT")
 
         return data_points
 
-    def _make_entity_triplets(self, labels: list[str], inputs: list[torch.Tensor] = None, k: int = 20):
+    def _make_entity_triplets(
+            self,
+            labels: list[str],
+            inputs: list[torch.Tensor] = None,
+            k: int = 20) -> list[tuple[torch.Tensor (torch.Tensor, torch.Tensor)]]:
         """
         This will get the entities from a sentence and return them as a list of tuples (entity, label, index)
 
@@ -109,17 +113,7 @@ class SetFitDecoder(torch.nn.Module):
         """
 
         # Output format: [(anchor, (positive, negative)), ...]
-
-        if inputs is None:
-            inputs = [torch.zeros(1) for _ in range(
-                len(labels))]  # just to have A tensor
-
-        labels_dict = {label: [] for label in self.label_list}
-
-        for i, label in enumerate(labels):
-            labels_dict[label].append((i, inputs[i]))
-
-        return labels_dict
+        pass
 
     def _make_label_token_dict(self, data_points: list[Token]) -> dict[str, (int, list[torch.Tensor])]:
         """
