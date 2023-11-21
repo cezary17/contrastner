@@ -49,7 +49,8 @@ if __name__ == "__main__":
         embeddings=embeddings,
         label_dictionary=label_dictionary,
         label_type=args.label_type,
-        decoder=setfit_decoder
+        decoder=setfit_decoder,
+        span_encoding="BIO"
     )
 
     trainer = ModelTrainer(model, dataset)

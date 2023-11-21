@@ -1,27 +1,19 @@
+import logging
 import typing
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 import flair
 import torch
+from torch.nn import TripletMarginLoss, CrossEntropyLoss
 from flair.data import Dictionary, DT, Token, Label
 from flair.embeddings import TokenEmbeddings
 from flair.models import TokenClassifier
 
-'''
-TODO:
-1. Erstelle Key-Value / Dict mit Label: Tokens, z.B. {"PER": [token1, token2], ..., "O": [tokenN, ..., tokenX]}
-    -> Funktion _make_label_token_dict
+logger = logging.getLogger("flair")
+logger.setLevel("DEBUG")
 
-2. Forme Triplets aus diesem Dict. Beginn mit trivialer Idee: Forme für jeden Token im Batch ein Triplet
-    z.b. [(anchor: token1, pos: token2, neg: tokenX), ...]. Geht nur wenn mind. 2 Labels pro klasse vorhanden sind, 
-    da sonst kein positiv anchor. Negative einfach random aus allen anderen Labels.
-    
-3. Dann diese List durch torch.nn.TripletMarginLoss o. ä., können wir noch anpassen aber das ist erstmal der Standard.
-
-4. Return die Scores (negative distance) aus batch
-
-5. Train model mit 100 beispiele aus CoNLL
-'''
+# TODO: Turn this into a proper class this is getting too big imo
+LABEL_TENSOR_DICT = Dict[str, List[Tuple[Tuple[int, int, str], torch.Tensor]]]
 
 
 class SFTokenClassifier(TokenClassifier):
@@ -75,7 +67,20 @@ class SFTokenClassifier(TokenClassifier):
 
 
 class SetFitDecoder(torch.nn.Module):
+    """
+    1. Erstelle Key-Value / Dict mit Label: Tokens, z.B. {"PER": [token1, token2], ..., "O": [tokenN, ..., tokenX]}
+        -> Funktion _make_label_token_dict
 
+    2. Forme Triplets aus diesem Dict. Beginn mit trivialer Idee: Forme für jeden Token im Batch ein Triplet
+        z.b. [(anchor: token1, pos: token2, neg: tokenX), ...]. Geht nur wenn mind. 2 Labels pro klasse vorhanden sind,
+        da sonst kein positiv anchor. Negative einfach random aus allen anderen Labels.
+
+    3. Dann diese List durch torch.nn.TripletMarginLoss o. ä., können wir noch anpassen aber das ist erstmal der Standard.
+
+    4. Return die Scores (negative distance) aus batch
+
+    5. Train model mit 100 beispiele aus CoNLL
+    """
     def __init__(self, label_dictionary: Dictionary, *args, **kwargs):
         """
         who even reads docstrings?
@@ -91,18 +96,33 @@ class SetFitDecoder(torch.nn.Module):
         label_list += ["O"]
         self.label_list = label_list
 
-    def forward(self, data_points: list[Token], data_point_tensor: typing.Any):
+        # Will be set and updated in forward
+        self.label_tensor_dict = None
+        self.internal_batch_counter = 0
 
-        label_token_dict = self._make_label_token_dict(data_points)
-        print("I AM HERE TO HAVE SOMEWHERE TO BREAKPOINT")
+    def forward(self, data_points: list[Token], data_point_tensor):
 
-        return data_points
+        label_token_dict = self._make_label_tensor_dict(data_points)
+        self._update_internal_label_tensor(label_tensor_dict=label_token_dict)
+        error_replacement = False
+
+        # Assert that each label has at least 2 tokens
+        for label, tokens in self.label_tensor_dict.items():
+            # PROBLEM HERE: THIS ALWAYS HAPPENS WITH BATCH SIZES UP TO 64
+            # IDEA -> 2 LOSS FUNCTIONS AND WE INSTEAD KEEP A GLOBAL LABEL-TENSOR DICT WHICH WE UPDATE UP TO THE POINT
+            # WHEN WE HAVE ENOUGH DATA -> THEN WE SWITCH TO TRIPLET LOSS
+            if len(tokens) < 2:
+                # raise ValueError(f"Label {label} has less than 2 tokens. ")
+                error_replacement = True
+
+        self.internal_batch_counter += 1
+        return data_point_tensor
 
     def _make_entity_triplets(
             self,
-            labels: list[str],
-            inputs: list[torch.Tensor] = None,
-            k: int = 20) -> list[tuple[torch.Tensor (torch.Tensor, torch.Tensor)]]:
+            labels: List[str],
+            inputs: List[torch.Tensor] = None,
+            k: int = 20) -> List[Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]]:
         """
         This will get the entities from a sentence and return them as a list of tuples (entity, label, index)
 
@@ -115,7 +135,7 @@ class SetFitDecoder(torch.nn.Module):
         # Output format: [(anchor, (positive, negative)), ...]
         pass
 
-    def _make_label_token_dict(self, data_points: list[Token]) -> dict[str, (int, list[torch.Tensor])]:
+    def _make_label_tensor_dict(self, data_points: list[Token]) -> LABEL_TENSOR_DICT:
         """
         This will get the input tensor batch and output a dictionary of the labels alongside their index and the
         corresponding tensors
@@ -130,25 +150,22 @@ class SetFitDecoder(torch.nn.Module):
         """
 
         # Initialize dict of labels with labels found in label_dictionary
-        labels_dict = {label: []
-                       for label in self.label_dictionary.get_items()}
-        labels_dict["O"] = []
+        labels_dict = {label: [] for label in self.label_list}
 
         for dp_idx, dp in enumerate(data_points):
 
             dp_label = dp.get_label("ner")
 
             # Map to simple embeddings to get "LOC" from "S-LOC", ...
-            dp_simple_label = self._map_pos_labels(dp_label)
+            dp_simple_label = self._cut_label_prefix(dp_label)
 
-            labels_dict[dp_simple_label].append((dp_idx, dp.embedding))
+            labels_dict[dp_simple_label].append(((self.internal_batch_counter, dp_idx, dp.text), dp.embedding))
 
         return labels_dict
 
-    def _map_pos_labels(self, label: Label) -> str:
+    def _cut_label_prefix(self, label: Label) -> str:
         """
         Maybe possible that this function is redundant and flair provides the simple label somewhere
-        TODO: Ask Jonas
 
         :param label: Label with positional information (start, inside, ...)
         :return: Simple Label like "MISC" or "PER"
@@ -163,3 +180,26 @@ class SetFitDecoder(torch.nn.Module):
         assert label_val in self.label_list
 
         return label_val
+
+    def _update_internal_label_tensor(self, label_tensor_dict: LABEL_TENSOR_DICT):
+        """
+        Function for updating the internal label-tensor-dict. Needed as we don't get enough different labels in first
+        step(s) to do TripletMarginLoss
+
+        Also, as of now checks if a batch had >= 2 NER labels inside
+
+        :param label_tensor_dict: Output from _make_label_token_dict
+        :return:
+        """
+
+        feature_rich = all([True if len(val) >= 2 else False for val in label_tensor_dict.values()])
+
+        if feature_rich:
+            logger.debug(msg=f"FEATURE RICH BATCH NUMBER {self.internal_batch_counter} LESGO")
+
+        if self.label_tensor_dict is None:
+            self.label_tensor_dict = label_tensor_dict
+            return
+
+        for key in self.label_tensor_dict:
+            self.label_tensor_dict[key] += label_tensor_dict[key]
