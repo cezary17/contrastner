@@ -1,5 +1,6 @@
 import argparse
 
+import flair
 from flair.datasets import CONLL_03
 from flair.models import TokenClassifier
 from flair.embeddings import TransformerWordEmbeddings
@@ -8,6 +9,7 @@ from flair.trainers import ModelTrainer
 from setfit.modeling import SetFitDecoder, SFTokenClassifier
 
 if __name__ == "__main__":
+    flair.set_seed(42)
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", type=str, default="CONLL03")
     parser.add_argument("--label_type", type=str, default="ner")
