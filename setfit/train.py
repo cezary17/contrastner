@@ -7,6 +7,7 @@ from flair.embeddings import TransformerWordEmbeddings
 from flair.trainers import ModelTrainer
 
 from setfit.modeling import SetFitDecoder, SFTokenClassifier
+from setfit.dataset import filter_dataset
 
 if __name__ == "__main__":
     flair.set_seed(42)
@@ -31,6 +32,8 @@ if __name__ == "__main__":
 
     label_dictionary = dataset.make_label_dictionary(args.label_type)
 
+    # datasset = filter_dataset(dataset)
+
     # TODO: Implement the embeddings you want to use.
     embeddings = TransformerWordEmbeddings(args.transformer_model)
 
@@ -45,14 +48,13 @@ if __name__ == "__main__":
 
     # TODO: You can do so by deleting the test and dev split from Corpus instance
 
-    setfit_decoder = SetFitDecoder(label_dictionary=label_dictionary)
+    # setfit_decoder = SetFitDecoder(label_dictionary=label_dictionary)
 
     model = SFTokenClassifier(
         embeddings=embeddings,
         label_dictionary=label_dictionary,
         label_type=args.label_type,
-        decoder=setfit_decoder,
-        span_encoding="BIO"
+        span_encoding="BIO",
     )
 
     trainer = ModelTrainer(model, dataset)

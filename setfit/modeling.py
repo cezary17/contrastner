@@ -8,7 +8,7 @@ import torch
 from flair.data import Dictionary, DT, Token, Label
 from flair.embeddings import TokenEmbeddings
 from flair.models import TokenClassifier
-from torch.nn import TripletMarginLoss, CrossEntropyLoss
+from torch.nn import TripletMarginLoss
 
 logger = logging.getLogger("flair")
 logger.setLevel("DEBUG")
@@ -48,10 +48,9 @@ class SFTokenClassifier(TokenClassifier):
             **classifierargs
         )
 
-        self.warmup = True
-
-        self.warmup_loss = CrossEntropyLoss()
         self.triplet_loss = TripletMarginLoss()
+        self.label_list = self.label_dictionary.get_items() + ["O"]
+        self._internal_batch_counter = 0
 
     def forward_loss(self, sentences: List[DT]) -> Tuple[torch.Tensor, int]:
         # make a forward pass to produce embedded data points and labels
@@ -71,14 +70,32 @@ class SFTokenClassifier(TokenClassifier):
         # pass data points through network to get encoded data point tensor
         self.embeddings.embed(sentences)
 
-        # HUGE CHANGES HERE!
-
-        self._make_label_tensor_dict()
+        labels_dict = self._make_label_tensor_dict()
         # Shape: 53 * 3 * 768
-        triplets = self._make_entity_triplets()
+        triplets = self._make_entity_triplets(labels_dict)
+
+        self._internal_batch_counter += 1
 
         # calculate the loss
-        return self._calculate_loss(triplets)
+        return self.triplet_loss(triplets), label_tensor.size(0)
+
+    def _cut_label_prefix(self, label: Label) -> str:
+        """
+        Maybe possible that this function is redundant and flair provides the simple label somewhere
+
+        :param label: Label with positional information (start, inside, ...)
+        :return: Simple Label like "MISC" or "PER"
+        """
+        label_val = label.value
+
+        # labels have to start with "S" or "I" followed by "-" followed by the label itself
+        if label_val != "O":
+            label_val = label_val.split("-")[-1]
+
+        # sanity check for development
+        assert label_val in self.label_list
+
+        return label_val
 
     def _make_label_tensor_dict(self, data_points: list[Token]) -> LABEL_TENSOR_DICT:
         """
@@ -88,8 +105,8 @@ class SFTokenClassifier(TokenClassifier):
         :param data_points: list of data points (flair.data.Token) as seen in TokenClassifier forward loop
         :return: A dict mapping the label to tensors having that label alongside it's index eg:
             {
-                "LOC": [(0, Tensor1), (1, Tensor2)
-                "PER": [(2, Tensor3), (3, Tensor4)
+                "LOC": [((batch, sentence_idx, 0), Tensor1), ((batch, sentence_idx, 1), Tensor2)]
+                "PER": [((batch, sentence_idx, 3), Tensor3), ((batch, sentence_idx, 4), Tensor4)]
                 ...
             }
         """
@@ -107,33 +124,33 @@ class SFTokenClassifier(TokenClassifier):
 
         return labels_dict
 
-    def _make_entity_triplets(
-            self,
-            k: int = 20) -> List[Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]]:
+    def _make_entity_triplets(self, labels_dict: LABEL_TENSOR_DICT) -> List[TRIPLET]:
         """
-        This will get the entities from a sentence and return them as a list of tuples (entity, label, index)
-        :param k: Number of triplets to return
-        :return:
+        This will generate the list of triplets for all labels in label_tensor_dict
+
+        We iterate over the labels and make triplets for every entity we found
+        :param: labels_dict: Output from _make_label_token_dict
+        :return: List of triplets [(anchor, (positive, negative)), ...]
         """
 
-        assert self.is_warmed_up, "Decoder did not receive enough data to do triplet loss"
+        triplets = []
+        for entity, tensor_list in labels_dict.items():
 
-        # Output format: [(anchor, (positive, negative)), ...]
-        anchor_label_idx = random.randint(0, len(self.label_list) - 1)
-        anchor_label = self.label_list(random.randint(anchor_label_idx))
-        not_anchor_label_idx = choice([i for i in range(len(self.label_list)) if i != anchor_label_idx])
+            for current_anchor_idx, current_anchor_tup in enumerate(tensor_list):
+                anchor_label = entity
+                anchor_tensor = current_anchor_tup[1]
 
-        anchor_idx = random.randint(0, len(self.label_tensor_dict[anchor_label]) - 1)
-        anchor = self.label_tensor_dict[anchor_label][anchor_idx]
+                # any entity not sharing the same label
+                negative_label = choice([label for label in self.label_list if label != anchor_label])
+                negative_tensor = choice(labels_dict[negative_label])[1]
 
-        positive_idx = choice([i for i in range(len(self.label_tensor_dict[anchor_label])) if i != anchor_idx])
-        positive = self.label_tensor_dict[anchor_label][positive_idx]
+                # any entity sharing label with anchor without same indez
+                available_positives = [tensor for tensor in tensor_list if tensor != current_anchor_tup]
+                positive_tensor = choice(available_positives)[1]
 
-        negative_label = self.label_list(not_anchor_label_idx)
-        negative_idx = random.randint(0, len(self.label_tensor_dict[negative_label]) - 1)
-        negative = self.label_tensor_dict[negative_label][negative_idx]
+                triplets.append((anchor_tensor, (positive_tensor, negative_tensor)))
 
-        return (anchor, (positive, negative))
+        return triplets
 
 
 class SetFitDecoder(torch.nn.Module):
@@ -225,7 +242,6 @@ class SetFitDecoder(torch.nn.Module):
 
         # Output format: [(anchor, (positive, negative)), ...]
         anchor_label_idx = random.randint(0, len(self.label_list) - 1)
-
 
         anchor_label = self.label_list(random.randint(anchor_label_idx))
         not_anchor_label_idx = choice([i for i in range(len(self.label_list)) if i != anchor_label_idx])
