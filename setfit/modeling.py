@@ -47,7 +47,7 @@ class SFTokenClassifier(TokenClassifier):
             **classifierargs
         )
 
-        self.triplet_loss = TripletMarginLoss()
+        self.loss_function = TripletMarginLoss()
         self.label_list = self.label_dictionary.get_items() + ["O"]
         self._internal_batch_counter = 0
         self.bio_label_list = self._make_bio_label_list()
@@ -77,7 +77,7 @@ class SFTokenClassifier(TokenClassifier):
         self._internal_batch_counter += 1
 
         # calculate the loss
-        return self.triplet_loss(triplets), label_tensor.size(0)
+        return self.loss_function(*triplets), label_tensor.size(0)
 
     def _cut_label_prefix(self, label: Label) -> str:
         """
@@ -128,7 +128,7 @@ class SFTokenClassifier(TokenClassifier):
 
         return labels_dict
 
-    def _make_entity_triplets(self, labels_dict: LABEL_TENSOR_DICT) -> List[TRIPLET]:
+    def _make_entity_triplets(self, labels_dict: LABEL_TENSOR_DICT) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         This will generate the list of triplets for all labels in label_tensor_dict
 
@@ -139,22 +139,33 @@ class SFTokenClassifier(TokenClassifier):
 
         triplets = []
         for entity, tensor_list in labels_dict.items():
+            # skip if we have no different positive for that label
+            if len(tensor_list) < 2:
+                continue
 
             for current_anchor_idx, current_anchor_tup in enumerate(tensor_list):
                 anchor_label = entity
                 anchor_tensor = current_anchor_tup[1]
 
                 # any entity not sharing the same label
-                negative_label = choice([label for label in self.bio_label_list if label != anchor_label])
+                negative_label = choice([label for label in self.bio_label_list if (
+                        label != anchor_label and
+                        len(labels_dict[label]) > 0)])
+
                 negative_tensor = choice(labels_dict[negative_label])[1]
 
                 # any entity sharing label with anchor without same index
-                available_positives = [tensor for tensor in tensor_list if tensor != current_anchor_tup]
+
+                available_positives = tensor_list[:current_anchor_idx] + tensor_list[current_anchor_idx + 1:]
                 positive_tensor = choice(available_positives)[1]
 
                 triplets.append((anchor_tensor, positive_tensor, negative_tensor))
 
-        return triplets
+        full_anchor_tensor = torch.stack([triplet[0] for triplet in triplets])
+        full_positive_tensor = torch.stack([triplet[1] for triplet in triplets])
+        full_negative_tensor = torch.stack([triplet[2] for triplet in triplets])
+
+        return full_anchor_tensor, full_positive_tensor, full_negative_tensor
 
     def _make_bio_label_list(self):
         bio_labels = []

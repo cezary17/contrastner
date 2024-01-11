@@ -1,8 +1,9 @@
 import argparse
 
+from pathlib import Path
 import flair
 from flair.datasets import CONLL_03
-from flair.models import SequenceTagger, TokenClassifier
+from flair.models import TokenClassifier
 from flair.trainers import ModelTrainer
 
 from setfit.dataset import filter_dataset
@@ -13,9 +14,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", type=str, default="CONLL03")
     parser.add_argument("--label_type", type=str, default="ner")
-    parser.add_argument("--base_model_path", type=str, default="resources/setfit/")
+    parser.add_argument("--base_model_path", type=str, default="resources/setfit/contrastive/")
+    parser.add_argument("--base_model_filename", type=str, default="final-model.pt")
     parser.add_argument("--tag_type", type=str, default="BIO")
-    parser.add_argument("--save_path", type=str, default="resources/setfit/")
+    parser.add_argument("--save_path", type=str, default="resources/setfit/finetune")
     parser.add_argument("--learning_rate", type=float, default=3e-5)
     parser.add_argument("--batch_size", type=int, default=4)
     parser.add_argument("--gradient_accumulation_size", type=int, default=4)  # this always needs to be <= batch size
@@ -31,12 +33,15 @@ if __name__ == "__main__":
 
     filter_dataset(dataset)
 
-    setfit_model = TokenClassifier.load(args.save_path)
+    setfit_model_path = Path(args.base_model_path) / args.base_model_filename
+
+    setfit_model = TokenClassifier.load(setfit_model_path)
 
     model = TokenClassifier(
-        setfit_model.embeddings,  # only use the contrastive pretrained encoder
-        label_dictionary,
-        tag_type=args.tag_type,
+        embeddings=setfit_model.embeddings,  # only use the contrastive pretrained encoder
+        label_dictionary=label_dictionary,
+        label_type=args.label_type,
+        span_encoding=args.tag_type,
     )
 
     trainer = ModelTrainer(model, dataset)
