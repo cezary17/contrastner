@@ -1,19 +1,29 @@
-from flair.data import Sentence
-from torch.utils.data.dataset import ConcatDataset, Dataset, Subset
-from collections import Counter, defaultdict
-from flair.datasets.sequence_labeling import ColumnDataset
+import typing
+from collections import defaultdict
 
-def filter_dataset(corpus):
+from flair.data import Corpus
+from torch.utils.data.dataset import Subset
+
+
+def filter_dataset(corpus: Corpus, count: int = 100) -> typing.NoReturn:
     """
-    Filter a corpus to only contain sentences that have at least one entity.
+    Filter a corpus to only contain sentences with at least 2 labeled entities.
     :param corpus: The corpus to filter.
-    :param split: The split to filter. Default: train.
-    :return: The filtered corpus.
+    :return: None
     """
-    filtered = []
-    # prev_sentence_count = corpus.train.datasets[0].total_sentence_count
+    indices = find_indices(corpus, count)
+    corpus._train = Subset(corpus.train, indices)
 
-    for sentence in corpus.train:
+
+def find_indices(corpus: Corpus, count: int = 100) -> typing.List[int]:
+    """
+        Find the first <count> indices in a corpus that have >= 2 labeled entities.
+        :param corpus: The corpus to filter.
+        :param count: The number of indices to find.
+        :return: List of indices.
+        """
+    indices = []
+    for sentence_index, sentence in enumerate(corpus.train):
         sentence_dict = sentence.to_dict(tag_type="ner")
         sentence_counter = defaultdict(int)
 
@@ -23,7 +33,9 @@ def filter_dataset(corpus):
 
         for label, count in sentence_counter.items():
             if count >= 2:
-                filtered.append(sentence)
-                break
+                indices.append(sentence_index)
 
-    return corpus
+        if len(indices) > count:
+            break
+
+    return indices

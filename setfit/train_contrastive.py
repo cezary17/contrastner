@@ -2,12 +2,13 @@ import argparse
 
 import flair
 from flair.datasets import CONLL_03
-from flair.models import TokenClassifier
 from flair.embeddings import TransformerWordEmbeddings
+from flair.models import TokenClassifier
 from flair.trainers import ModelTrainer
+from torch.utils.data.dataset import Subset
 
-from setfit.modeling import SetFitDecoder, SFTokenClassifier
 from setfit.dataset import filter_dataset
+from setfit.modeling import SFTokenClassifier
 
 if __name__ == "__main__":
     flair.set_seed(42)
@@ -19,12 +20,10 @@ if __name__ == "__main__":
     parser.add_argument("--save_path", type=str, default="resources/setfit/")
     parser.add_argument("--learning_rate", type=float, default=3e-5)
     parser.add_argument("--batch_size", type=int, default=4)
-    parser.add_argument("--gradient_accumulation_size", type=int, default=4) # this always needs to be <= batch size
+    parser.add_argument("--gradient_accumulation_size", type=int, default=4)  # this always needs to be <= batch size
 
     args = parser.parse_args()
 
-    # TODO: Implement datasets you want to use.
-    # TODO: Downsample the dataset (train and validation split) with .downsample()
     if args.dataset == "CONLL03":
         dataset = CONLL_03()
     else:
@@ -32,7 +31,7 @@ if __name__ == "__main__":
 
     label_dictionary = dataset.make_label_dictionary(args.label_type)
 
-    # datasset = filter_dataset(dataset)
+    filter_dataset(dataset)
 
     # TODO: Implement the embeddings you want to use.
     embeddings = TransformerWordEmbeddings(args.transformer_model)
@@ -65,24 +64,3 @@ if __name__ == "__main__":
         mini_batch_size=args.batch_size,
         mini_batch_chunk_size=args.gradient_accumulation_size,
     )
-
-    # TODO: load the pre-trained encoder - only the encoder!
-    setfit_model = TokenClassifier.load(args.save_path)
-
-    # TODO: Implement 2nd phase: fine-tuning. This is standard procedure, you can re-use existing scripts.
-    model = TokenClassifier(
-        setfit_model.embeddings, # only use the contrastive pretrained encoder
-        label_dictionary,
-        tag_type=args.tag_type,
-        decoder=setfit_decoder
-    )
-
-    trainer = ModelTrainer(model, dataset)
-
-    trainer.fine_tune(
-        args.save_path,
-        learning_rate=args.learning_rate,
-        mini_batch_size=args.batch_size,
-        mini_batch_chunk_size=args.gradient_accumulation_size,
-    )
-
