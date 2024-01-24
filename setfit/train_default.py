@@ -1,24 +1,22 @@
 import argparse
-from pathlib import Path
 
 import flair
 from flair.datasets import CONLL_03
+from flair.embeddings import TransformerWordEmbeddings
 from flair.models import TokenClassifier
 from flair.trainers import ModelTrainer
 
 from setfit.dataset import filter_dataset
 
 
-def finetuning_training_loop():
+def default_train_loop():
     flair.set_seed(42)
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", type=str, default="CONLL03")
     parser.add_argument("--label_type", type=str, default="ner")
-    parser.add_argument("--base_model_path", type=str, default="resources/setfit/contrastive/")
     parser.add_argument("--transformer_model", type=str, default="bert-base-uncased")
-    parser.add_argument("--base_model_filename", type=str, default="final-model.pt")
     parser.add_argument("--tag_type", type=str, default="BIO")
-    parser.add_argument("--save_path", type=str, default="resources/setfit/finetune")
+    parser.add_argument("--save_path", type=str, default="resources/setfit/default")
     parser.add_argument("--learning_rate", type=float, default=3e-5)
     parser.add_argument("--batch_size", type=int, default=4)
     parser.add_argument("--gradient_accumulation_size", type=int, default=4)  # this always needs to be <= batch size
@@ -34,12 +32,10 @@ def finetuning_training_loop():
 
     filter_dataset(dataset)
 
-    setfit_model_path = Path(args.base_model_path) / args.base_model_filename
-
-    setfit_model = TokenClassifier.load(setfit_model_path)
+    embeddings = TransformerWordEmbeddings(args.transformer_model)
 
     model = TokenClassifier(
-        embeddings=setfit_model.embeddings,  # only use the contrastive pretrained encoder
+        embeddings=embeddings,  # only use the contrastive pretrained encoder
         label_dictionary=label_dictionary,
         label_type=args.label_type,
         span_encoding=args.tag_type,
@@ -56,4 +52,4 @@ def finetuning_training_loop():
 
 
 if __name__ == "__main__":
-    finetuning_training_loop()
+    default_train_loop()

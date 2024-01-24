@@ -1,4 +1,5 @@
 import logging
+from enum import Enum
 from random import choice
 from typing import List, Tuple, Dict
 
@@ -14,7 +15,6 @@ logger.setLevel("DEBUG")
 
 flair.device = torch.device("cuda:1")
 
-# TODO: Turn this into a proper class this is getting too big imo
 """
 Dict of
     {
@@ -25,11 +25,17 @@ LABEL_TENSOR_DICT = Dict[str, List[Tuple[Tuple[int, int, str], torch.Tensor]]]
 TRIPLET = Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]
 
 
+class FilterMethod(Enum):
+    LESS_2 = "less-2"
+    NONE = "none"
+    NO_O = "no-o"
+
+
+class FilterNotImplementedError(Exception):
+    pass
+
+
 class SFTokenClassifier(TokenClassifier):
-    """
-    Idea here is to change one thing in the forward model inherited from DefaultClassifier -> pass the labels tensor to
-    the decoder
-    """
 
     def __init__(
             self,
@@ -71,7 +77,10 @@ class SFTokenClassifier(TokenClassifier):
         self.embeddings.embed(sentences)
 
         labels_dict = self._make_label_tensor_dict(sentences)
-        # Shape: 53 * 3 * 768
+
+        # Apply filters
+        labels_dict = self._filter_labels_dict(labels_dict, FilterMethod.NO_O)
+
         triplets = self._make_entity_triplets(labels_dict)
 
         self._internal_batch_counter += 1
@@ -105,8 +114,8 @@ class SFTokenClassifier(TokenClassifier):
         :param data_points: list of data points (flair.data.Token) as seen in TokenClassifier forward loop
         :return: A dict mapping the label to tensors having that label alongside it's index eg:
             {
-                "LOC": [((batch, sentence_idx, 0), Tensor1), ((batch, sentence_idx, 1), Tensor2)]
-                "PER": [((batch, sentence_idx, 3), Tensor3), ((batch, sentence_idx, 4), Tensor4)]
+                "LOC": [((batch, token_idx, "sample_text"), Tensor1), ((batch, token_idx, "sample_text"), Tensor2)]
+                "PER": [((batch, token_idx, "sample_text"), Tensor3), ((batch, token_idx, "sample_text"), Tensor4)]
                 ...
             }
         """
@@ -128,6 +137,47 @@ class SFTokenClassifier(TokenClassifier):
 
         return labels_dict
 
+    def _filter_labels_dict(self, labels_dict: LABEL_TENSOR_DICT, method: str | FilterMethod) -> LABEL_TENSOR_DICT:
+        """
+        This will filter the labels dict to only contain labels with more than one entry
+
+        :param labels_dict: Output from _make_label_token_dictA
+        :param method: Method to use for filtering
+        :return: Filtered dict
+        """
+
+        if isinstance(method, str):
+            method = FilterMethod(method)
+
+        match method:
+            case FilterMethod.NONE:
+                return labels_dict
+            case FilterMethod.NO_O:
+                return self._no_o_filter(labels_dict)
+            case FilterMethod.LESS_2:
+                return self._less_2_filter(labels_dict)
+            case _:
+                raise FilterNotImplementedError(f"Method {method.value} is not known.")
+
+    @staticmethod
+    def _no_o_filter(labels_dict: LABEL_TENSOR_DICT) -> LABEL_TENSOR_DICT:
+        """
+        This will remove the "O" label from the labels_dict
+        :param labels_dict: Labels dict from _make_label_token_dict
+        :return:
+        """
+        labels_dict.pop("O")
+        return labels_dict
+
+    @staticmethod
+    def _less_2_filter(labels_dict: LABEL_TENSOR_DICT) -> LABEL_TENSOR_DICT:
+        """
+        This will remove all labels with less than 2 entries
+        :param labels_dict: Labels dict from _make_label_token_dict
+        :return:
+        """
+        return {label: tensor_list for label, tensor_list in labels_dict.items() if len(tensor_list) > 2}
+
     def _make_entity_triplets(self, labels_dict: LABEL_TENSOR_DICT) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         This will generate the list of triplets for all labels in label_tensor_dict
@@ -138,6 +188,10 @@ class SFTokenClassifier(TokenClassifier):
         """
 
         triplets = []
+
+        # here for the case we throw O-labels out or similar
+        relevant_labels = [label for label in self.bio_label_list if label in labels_dict.keys()]
+
         for entity, tensor_list in labels_dict.items():
             # skip if we have no different positive for that label
             if len(tensor_list) < 2:
@@ -148,9 +202,15 @@ class SFTokenClassifier(TokenClassifier):
                 anchor_tensor = current_anchor_tup[1]
 
                 # any entity not sharing the same label
-                negative_label = choice([label for label in self.bio_label_list if (
-                        label != anchor_label and
-                        len(labels_dict[label]) > 0)])
+
+                possible_neg_labels = [label for label in relevant_labels if
+                                       (label != anchor_label and len(labels_dict[label]) > 0)]
+
+                # problem with 1 label having a lot of entries and the rest having 0 -> no negative
+                # should be fixed by filtering the dataset now but can never be too safe
+                assert len(possible_neg_labels) > 0
+
+                negative_label = choice(possible_neg_labels)
 
                 negative_tensor = choice(labels_dict[negative_label])[1]
 
