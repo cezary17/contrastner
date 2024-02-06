@@ -1,0 +1,16 @@
+name: fsner
+channels:
+    - conda-forge
+    - defaults
+dependencies:
+  - python=3.11.5
+  - numpy
+  - pandas
+  - matplotlib
+  - seaborn
+  - wandb
+  - pytorch::pytorch
+  - pip
+  - pip:
+    - flair
+    - jupyter

@@ -3,6 +3,7 @@ from pathlib import Path
 
 import flair
 from flair.datasets import CONLL_03
+from flair.embeddings import TransformerWordEmbeddings
 from flair.models import TokenClassifier
 from flair.trainers import ModelTrainer
 
@@ -38,8 +39,10 @@ def finetuning_training_loop():
 
     setfit_model = TokenClassifier.load(setfit_model_path)
 
+    default_model = TransformerWordEmbeddings(args.transformer_model)
+
     model = TokenClassifier(
-        embeddings=setfit_model.embeddings,  # only use the contrastive pretrained encoder
+        embeddings=default_model,  # only use the contrastive pretrained encoder
         label_dictionary=label_dictionary,
         label_type=args.label_type,
         span_encoding=args.tag_type,

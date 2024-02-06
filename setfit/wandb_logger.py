@@ -15,9 +15,9 @@ class WandbLoggingHandler(logging.Handler):
     def emit(self, record):
         try:
             # adjust alert level
-            if record.level >= logging.ERROR:
+            if record.levelno >= logging.ERROR:
                 level = self.wandb.AlertLevel.ERROR
-            elif record.level >= logging.WARNING:
+            elif record.levelno >= logging.WARNING:
                 level = self.wandb.AlertLevel.WARN
             else:
                 level = self.wandb.AlertLevel.INFO
