@@ -61,16 +61,27 @@ class WandbLogger(TrainerPlugin):
 
     @TrainerPlugin.hook
     def metric_recorded(self, record):
-        if record.is_scalar:
-            self.wandb.log({record.name: record.value})
-        else:
-            if not self._emitted_record_type_warning:
-                log.warning("Logging anything other than scalars to W&B is currently not supported.")
-                self._emitted_record_type_warning = True
+        # print("DEBUG METRIC RECORDED HOOK")
+        # print(record)
+        # print(type(record))
+        # print(dir(record))
+        # print(record.typ)
+        # if record.is_scalar:
+        converted_record_name = str(record.name)
+        self.wandb.log({converted_record_name: record.value})
+        # else:
+        #     if not self._emitted_record_type_warning:
+        #         log.warning("Logging anything other than scalars to W&B is currently not supported.")
+        #         self._emitted_record_type_warning = True
 
     @TrainerPlugin.hook
     def _training_finally(self, **kw):
-        self.writer.close()
+        logging.info("_training_finally hook")
+        # self.writer.close()
+
+    @TrainerPlugin.hook
+    def after_training(self, **kw):
+        logging.info("after_training hook")
 
     def get_state(self) -> Dict[str, Any]:
         return {

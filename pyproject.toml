@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "fewshot-ner-thesis"
+version = "0.1.0"
+description = ""
+authors = ["cezary17 <cezarykujath@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+numpy = "^1.24"
+pandas = "^1.5"
+matplotlib = "^3.7"
+seaborn = "^0.12"
+wandb = "^0.14"
+torch = "^1.10"
+flair = "^0.13"
+
+[tool.poetry.dev-dependencies]
+jupyter = "^1.0"
+pytest = "^6.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
