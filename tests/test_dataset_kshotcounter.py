@@ -41,5 +41,5 @@ def test_add_malformed_sentence(labels):
 
 def test_catch_bad_labels():
     counter = KShotCounter(k=3, labels=TEST_LABELS)
-    with pytest.raises(ValueError):
+    with pytest.raises(KeyError):
         counter.add_sentence({"PER": 2, "ORG": 1, "BAD": 1})

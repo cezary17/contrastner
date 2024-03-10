@@ -18,14 +18,17 @@ class KShotCounter(Counter):
         else:
             raise KeyError(key)  # Random label, should never happen
 
-    # def _old_check_labels_below_k(self, labels: typing.Dict[str, int]) -> bool:
-    #
-    #     condition_not_exceeding_k = all([self[label] + count <= self.k for label, count in labels.items()])
-    #     condition_geq_zero = all([count >= 0 for count in labels.values()])
-    #     condition_greater_2_one = any([count >= 2 for count in labels.values()])
-    #     condition_greater_1_two = sum([count >= 1 for count in labels.values()]) >= 2
-    #
-    #     return condition_not_exceeding_k and condition_geq_zero and condition_greater_2_one and condition_greater_1_two
+    @staticmethod
+    def make_labels_dict(sentence: Sentence) -> typing.Dict[str, int]:
+
+        sentence_dict = sentence.to_dict(tag_type="ner")
+        labels_dict = defaultdict(int)
+
+        for entity in sentence_dict["entities"]:
+            max_confidence_label = max(entity["labels"], key=lambda x: x["confidence"])
+            labels_dict[max_confidence_label["value"]] += 1
+
+        return labels_dict
 
     @staticmethod
     def check_contrastable(labels: typing.Dict[str, int]) -> bool:
@@ -42,10 +45,12 @@ class KShotCounter(Counter):
         condition_2_labels = any([count == 2 for count in labels.values()])
         # Assert no labels are represented more than 2 times (maybe not necessary)
         condition_no_exceeding_2 = all([count <= 2 for count in labels.values()])
+        # Assert that we have exactly one label with 2 instances
+        condition_excactly_2 = sum([count == 2 for count in labels.values()]) == 1
         # Assert that we have at least one label for contrasting
         condition_contrastable = sum([count >= 1 for count in labels.values()]) >= 2
 
-        return condition_2_labels and condition_no_exceeding_2 and condition_contrastable
+        return condition_2_labels and condition_no_exceeding_2 and condition_excactly_2 and condition_contrastable
 
     @staticmethod
     def find_target_label(labels: typing.Dict[str, int]) -> str:
@@ -65,60 +70,22 @@ class KShotCounter(Counter):
         if isinstance(labels, Sentence):
             labels = self.make_labels_dict(labels)
 
+        if not all([label in self.counted_labels for label in labels.keys()]):
+            unexpected_labels = [label for label in labels.keys() if label not in self.counted_labels]
+            raise KeyError(f"Unexpected labels found in input: {unexpected_labels}")
+
         if not self.check_contrastable(labels):
             return False
 
-        self.update(labels)
+        self[self.find_target_label(labels)] += 1
+
         return True
-
-    # @staticmethod
-    # def check_passable_sentence(labels: typing.Dict[str, int]) -> bool:
-    #     """
-    #     Check if a sentence is still passable, even if it exceeds the k number of labels.
-    #     Passable sentence: At least 1 label with >= 2 counts, and at least 2 different labels.
-    #     :param labels: The dict of labels to check.
-    #     :return: True if the sentence is passable, False otherwise.
-    #     """
-    #
-    #     condition_greater_2_one = any([count >= 2 for count in labels.values()])
-    #     condition_greater_1_two = sum([count >= 1 for count in labels.values()]) >= 2
-    #
-    #     return condition_greater_2_one and condition_greater_1_two
-
-    # def check_labels_increase_total(self, labels: typing.Dict[str, int]) -> bool:
-    #
-    #     current_sum = self.get_sum()
-    #     removed_counter = self.state_after_removal(labels)
-    #
-    #     if not removed_counter._old_check_labels_below_k(labels):
-    #         return False
-    #
-    #     removed_counter.try_add_labels(labels)
-    #     return removed_counter.get_sum() > current_sum
 
     def is_filled(self) -> bool:
         return all([count == self.k for count in self.values()])
 
     def get_sum(self) -> int:
         return sum(self.values())
-
-    # def state_after_removal(self, labels: typing.Dict[str, int]) -> "KShotCounter":
-    #     new_counter = KShotCounter(k=self.k, labels=self.counted_labels)
-    #     new_counter.update(self)
-    #     new_counter.remove_labels(labels)
-    #     return new_counter
-
-    @staticmethod
-    def make_labels_dict(sentence: Sentence) -> typing.Dict[str, int]:
-
-        sentence_dict = sentence.to_dict(tag_type="ner")
-        labels_dict = defaultdict(int)
-
-        for entity in sentence_dict["entities"]:
-            max_confidence_label = max(entity["labels"], key=lambda x: x["confidence"])
-            labels_dict[max_confidence_label["value"]] += 1
-
-        return labels_dict
 
 
 def find_indices_kshot(corpus: Corpus, k: int) -> typing.List[int]:
