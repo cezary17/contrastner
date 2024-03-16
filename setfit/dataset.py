@@ -77,11 +77,18 @@ class KShotCounter(Counter):
         if not self.check_contrastable(labels):
             return False
 
-        self[self.find_target_label(labels)] += 1
+        target_label = self.find_target_label(labels)
 
-        return True
+        if self[target_label] < self.k:
+            self[target_label] += 1
+            return True
 
-    def is_filled(self) -> bool:
+        return False
+
+    def is_full(self) -> bool:
+        overflow = any([count > self.k for count in self.values()])
+        assert not overflow, "Counter overflow in is_full call."
+
         return all([count == self.k for count in self.values()])
 
     def get_sum(self) -> int:
@@ -119,33 +126,11 @@ def find_indices_kshot(corpus: Corpus, k: int) -> typing.List[int]:
         #
         #             break
 
-        if counter.is_filled():
+        if counter.is_full():
             break
 
-    assert counter.is_filled(), "Not enough sentences to satisfy k-shot criterion."
+    assert counter.is_full(), "Not enough sentences to satisfy k-shot criterion."
     return indices
-
-
-def filter_dataset(corpus: Corpus, k: int = 5) -> typing.NoReturn:
-    """
-    Filter a corpus to only contain sentences with at least 2 labeled entities.
-    :param corpus: The corpus to filter.
-    :param k: Number labels for low-resource task.
-    :return: None
-    """
-
-    indices = find_indices_kshot(corpus, k)
-    corpus._train = Subset(corpus.train, indices)
-
-
-def filter_dataset_old(corpus: Corpus) -> typing.NoReturn:
-    """
-    Filter a corpus to only contain sentences with at least 2 labeled entities.
-    :param corpus: The corpus to filter.
-    :return: None
-    """
-    indices = find_indices_old(corpus, 20)
-    corpus._train = Subset(corpus.train, indices)
 
 
 def find_indices_old(corpus: Corpus, fs_sentences_num: int) -> typing.List[int]:
@@ -186,3 +171,25 @@ def remove_dev_and_train(corpus: Corpus) -> typing.NoReturn:
     """
     corpus._dev = None
     corpus._test = None
+
+
+def filter_dataset(corpus: Corpus, k: int = 5) -> typing.NoReturn:
+    """
+    Filter a corpus to only contain sentences with at least 2 labeled entities.
+    :param corpus: The corpus to filter.
+    :param k: Number labels for low-resource task.
+    :return: None
+    """
+
+    indices = find_indices_kshot(corpus, k)
+    corpus._train = Subset(corpus.train, indices)
+
+
+def filter_dataset_old(corpus: Corpus) -> typing.NoReturn:
+    """
+    Filter a corpus to only contain sentences with at least 2 labeled entities.
+    :param corpus: The corpus to filter.
+    :return: None
+    """
+    indices = find_indices_old(corpus, 20)
+    corpus._train = Subset(corpus.train, indices)

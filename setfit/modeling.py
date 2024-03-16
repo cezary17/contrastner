@@ -79,9 +79,9 @@ class SFTokenClassifier(TokenClassifier):
         labels_dict = self._make_label_tensor_dict(sentences)
 
         # Apply filters
-        labels_dict = self._filter_labels_dict(labels_dict, FilterMethod.NO_O)
+        filtered_labels_dict = self._filter_labels_dict(labels_dict, FilterMethod.NO_O)
 
-        triplets = self._make_entity_triplets(labels_dict)
+        triplets = self._make_entity_triplets(filtered_labels_dict)
 
         self._internal_batch_counter += 1
 
@@ -186,6 +186,8 @@ class SFTokenClassifier(TokenClassifier):
         :param: labels_dict: Output from _make_label_token_dict
         :return: List of triplets [(anchor, (positive, negative)), ...]
         """
+
+        assert len(labels_dict) > 0, "No labels found in labels_dict"
 
         triplets = []
 

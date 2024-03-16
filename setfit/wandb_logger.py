@@ -1,6 +1,8 @@
+import argparse
 import logging
 from typing import Any, Dict
 
+import wandb
 from flair.trainers.plugins.base import TrainerPlugin
 
 log = logging.getLogger("flair")
@@ -89,3 +91,4 @@ class WandbLogger(TrainerPlugin):
             "emit_alerts": self.emit_alerts,
             "alert_level": self.alert_level,
         }
+

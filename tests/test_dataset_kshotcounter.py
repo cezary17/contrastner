@@ -43,3 +43,12 @@ def test_catch_bad_labels():
     counter = KShotCounter(k=3, labels=TEST_LABELS)
     with pytest.raises(KeyError):
         counter.add_sentence({"PER": 2, "ORG": 1, "BAD": 1})
+
+
+def test_overfill_counter():
+    counter = KShotCounter(k=3, labels=TEST_LABELS)
+    counter.add_sentence({"PER": 2, "MISC": 1})
+    counter.add_sentence({"PER": 2, "MISC": 1})
+    counter.add_sentence({"PER": 2, "MISC": 1})
+    assert not counter.add_sentence({"PER": 2, "MISC": 1})
+    assert counter['PER'] == 3
