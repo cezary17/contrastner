@@ -39,6 +39,7 @@ def parse_training_arguments():
     parser.add_argument("--filtering_method", type=str, default="k-shot")  # legacy, k-shot
     parser.add_argument("--k_shot_num", type=int, default=5)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--contrast_filtering_method", type=str, default="no-o")
     # hyperparameters
     parser.add_argument("--max_epochs", type=int, default=1)
     parser.add_argument("--learning_rate", type=float, default=3e-5)
@@ -59,6 +60,7 @@ def init_wandb_logger(args: argparse.Namespace, **kwargs):
             "filtering_method": args.filtering_method,
             "k_shot_num": args.k_shot_num,
             "seed": args.seed,
+            "contrast_filtering_method": args.contrast_filtering_method,
 
             # hyperparameters
             "learning_rate": args.learning_rate,
@@ -101,6 +103,9 @@ def sweep_config(args: argparse.Namespace):
             },
             "k_shot_num": {
                 "value": args.k_shot_num
+            },
+            "contrast_filtering_method": {
+                "value": args.contrast_filtering_method
             },
             "seed": {
                 "value": args.seed

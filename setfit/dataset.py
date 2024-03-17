@@ -11,6 +11,8 @@ class KShotCounter(Counter):
         self.k = k
         self.counted_labels = labels
         self.update({label: 0 for label in labels})
+        # if not enough workable labels exist we can try contrasting with O-Tokens
+        self.allow_o_contrast = False
 
     def __missing__(self, key):
         if key in self.counted_labels:
@@ -129,7 +131,7 @@ def find_indices_kshot(corpus: Corpus, k: int) -> typing.List[int]:
         if counter.is_full():
             break
 
-    assert counter.is_full(), "Not enough sentences to satisfy k-shot criterion."
+    assert counter.is_full(), f"Not enough sentences to satisfy k-shot criterion. State: {counter}"
     return indices
 
 

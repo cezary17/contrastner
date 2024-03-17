@@ -43,6 +43,7 @@ class SFTokenClassifier(TokenClassifier):
             label_dictionary: Dictionary,
             label_type: str,
             span_encoding: str = "BIOES",
+            contrast_filtering_method: str = "no-o",
             **classifierargs, ) -> None:
 
         super().__init__(
@@ -57,6 +58,7 @@ class SFTokenClassifier(TokenClassifier):
         self.label_list = self.label_dictionary.get_items() + ["O"]
         self._internal_batch_counter = 0
         self.bio_label_list = self._make_bio_label_list()
+        self.filter_method = FilterMethod(contrast_filtering_method)
 
     def forward_loss(self, sentences: List[DT]) -> Tuple[torch.Tensor, int]:
         # make a forward pass to produce embedded data points and labels
