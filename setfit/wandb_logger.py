@@ -83,7 +83,7 @@ class WandbLogger(TrainerPlugin):
             classification_table = wandb.Table(dataframe=classification_report)
             self.wandb.log({"classification_report": classification_table})
         except KeyError:
-            log.warning("No test_results available, skipping classification report")
+            log.info("No test_results available, skipping classification report")
 
     def get_state(self) -> Dict[str, Any]:
         return {
