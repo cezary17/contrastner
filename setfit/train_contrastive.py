@@ -1,5 +1,3 @@
-import argparse
-
 import flair
 import wandb
 from flair.embeddings import TransformerWordEmbeddings
@@ -7,39 +5,43 @@ from flair.embeddings import TransformerWordEmbeddings
 from setfit.dataset import remove_dev_and_train
 from setfit.modeling import SFTokenClassifier
 from setfit.trainers import ModelTrainer
-from setfit.utils import select_dataset, select_dataset_filtering, parse_training_arguments, init_wandb_logger
+from setfit.utils import select_dataset, select_dataset_filtering, parse_training_arguments, init_wandb_logger, \
+    GLOBAL_PATHS
 from setfit.wandb_logger import WandbLogger
 
 
 # from flair.trainers import ModelTrainer
 
 
-def setfit_training_loop(args: argparse.Namespace):
-    wandb_logger = WandbLogger(wandb=wandb)
+def setfit_training_loop():
 
-    dataset = select_dataset(args)
+    flair.set_seed(wandb.config.seed)
 
-    select_dataset_filtering(args, dataset)
+    dataset_name = wandb.config.dataset
+    dataset = select_dataset(dataset_name)
 
+    select_dataset_filtering(wandb.config.filtering_method, dataset)
     remove_dev_and_train(dataset)
 
-    embeddings = TransformerWordEmbeddings(args.transformer_model)
-    label_dictionary = dataset.make_label_dictionary(args.label_type)
+    embeddings = TransformerWordEmbeddings(wandb.config.transformer_model)
+    label_dictionary = dataset.make_label_dictionary("ner")
 
     model = SFTokenClassifier(
         embeddings=embeddings,
         label_dictionary=label_dictionary,
-        label_type=args.label_type,
-        span_encoding=args.tag_type,
+        label_type="ner",
+        span_encoding=wandb.config.tag_type,
     )
 
     trainer = ModelTrainer(model, dataset)
+    wandb_logger = WandbLogger(wandb=wandb)
 
     trainer.fine_tune(
-        args.contrastive_model_path,
-        learning_rate=args.learning_rate,
-        mini_batch_size=args.batch_size,
-        mini_batch_chunk_size=args.gradient_accumulation_size,
+        GLOBAL_PATHS["contrastive_model_path"],
+        learning_rate=wandb.config.learning_rate,
+        max_epochs=wandb.config.max_epochs,
+        mini_batch_size=wandb.config.batch_gradient_size[0],
+        mini_batch_chunk_size=wandb.config.batch_gradient_size[1],
         plugins=[wandb_logger]
     )
 
@@ -47,6 +49,6 @@ def setfit_training_loop(args: argparse.Namespace):
 if __name__ == "__main__":
     args = parse_training_arguments()
     init_wandb_logger(args, workflow="contrastive_only")
-    flair.set_seed(args.seed)
+    flair.set_seed(wandb.config.seed)
 
-    setfit_training_loop(args)
+    setfit_training_loop()
