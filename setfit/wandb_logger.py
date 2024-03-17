@@ -1,7 +1,7 @@
-import argparse
 import logging
 from typing import Any, Dict
 
+import pandas as pd
 import wandb
 from flair.trainers.plugins.base import TrainerPlugin
 
@@ -63,27 +63,25 @@ class WandbLogger(TrainerPlugin):
 
     @TrainerPlugin.hook
     def metric_recorded(self, record):
-        # print("DEBUG METRIC RECORDED HOOK")
-        # print(record)
-        # print(type(record))
-        # print(dir(record))
-        # print(record.typ)
-        # if record.is_scalar:
         converted_record_name = str(record.name)
         self.wandb.log({converted_record_name: record.value})
-        # else:
-        #     if not self._emitted_record_type_warning:
-        #         log.warning("Logging anything other than scalars to W&B is currently not supported.")
-        #         self._emitted_record_type_warning = True
 
     @TrainerPlugin.hook
     def _training_finally(self, **kw):
         logging.info("_training_finally hook")
-        # self.writer.close()
 
     @TrainerPlugin.hook
     def after_training(self, **kw):
-        logging.info("after_training hook")
+        results = self.trainer.return_values
+
+        # log simple score
+        self.wandb.log({"test_score": results["test_score"]})
+
+        # log classification report as a wandb table
+        classification_report = pd.DataFrame(results["test_results"].classification_report)
+        classification_table = wandb.Table(dataframe=classification_report)
+
+        self.wandb.log({"classification_report": classification_table})
 
     def get_state(self) -> Dict[str, Any]:
         return {
@@ -91,4 +89,3 @@ class WandbLogger(TrainerPlugin):
             "emit_alerts": self.emit_alerts,
             "alert_level": self.alert_level,
         }
-

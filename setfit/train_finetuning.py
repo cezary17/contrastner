@@ -4,8 +4,9 @@ from pathlib import Path
 import flair
 import wandb
 from flair.models import TokenClassifier
-from flair.trainers import ModelTrainer
 
+# from flair.trainers import ModelTrainer
+from setfit.trainers import ModelTrainer
 from setfit.utils import init_wandb_logger, select_dataset, select_dataset_filtering, parse_training_arguments
 from setfit.wandb_logger import WandbLogger
 
@@ -30,7 +31,7 @@ def finetuning_training_loop(args: argparse.Namespace):
 
     trainer = ModelTrainer(model, dataset)
 
-    report = trainer.fine_tune(
+    trainer.fine_tune(
         args.save_path,
         learning_rate=args.learning_rate,
         mini_batch_size=args.batch_size,
@@ -38,12 +39,10 @@ def finetuning_training_loop(args: argparse.Namespace):
         plugins=[wandb_logger]
     )
 
-    print(report)
-
 
 if __name__ == "__main__":
     args = parse_training_arguments()
     init_wandb_logger(args, workflow="finetuning_only")
     flair.set_seed(args.seed)
 
-    finetuning_training_loop()
+    finetuning_training_loop(args)

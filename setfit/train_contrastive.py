@@ -3,12 +3,15 @@ import argparse
 import flair
 import wandb
 from flair.embeddings import TransformerWordEmbeddings
-from flair.trainers import ModelTrainer
 
 from setfit.dataset import remove_dev_and_train
 from setfit.modeling import SFTokenClassifier
+from setfit.trainers import ModelTrainer
 from setfit.utils import select_dataset, select_dataset_filtering, parse_training_arguments, init_wandb_logger
 from setfit.wandb_logger import WandbLogger
+
+
+# from flair.trainers import ModelTrainer
 
 
 def setfit_training_loop(args: argparse.Namespace):

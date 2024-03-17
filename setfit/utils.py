@@ -25,13 +25,16 @@ def parse_training_arguments():
     parser.add_argument("--contrastive_model_path", type=str, default="resources/setfit/contrastive/")  # fine-tuning only
     parser.add_argument("--contrastive_model_filename", type=str, default="final-model.pt")  # fine-tuning only
     parser.add_argument("--save_path", type=str, default="resources/setfit/finetune")  # output of fine-tuning
+    # experiment settings
     parser.add_argument("--tag_type", type=str, default="BIO")
+    parser.add_argument("--k_shot_num", type=int, default=5)
+    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--filtering_method", type=str, default="k-shot")  # legacy, k-shot
+    # hyperparameters
+    parser.add_argument("--max_epochs", type=int, default=1)
     parser.add_argument("--learning_rate", type=float, default=3e-5)
     parser.add_argument("--batch_size", type=int, default=4)
     parser.add_argument("--gradient_accumulation_size", type=int, default=4)  # this always needs to be <= batch size
-    parser.add_argument("--filtering_method", type=str, default="k-shot")  # legacy, k-shot
-    parser.add_argument("--k_shot_num", type=int, default=5)
-    parser.add_argument("--seed", type=int, default=0)
 
     return parser.parse_args()
 
@@ -48,6 +51,7 @@ def init_wandb_logger(args: argparse.Namespace, **kwargs):
             "batch_size": args.batch_size,
             "gradient_accumulation_size": args.gradient_accumulation_size,
             "filtering_method": args.filtering_method,
+            "max_epochs": args.max_epochs,
             "k_shot_num": args.k_shot_num,
             "seed": args.seed,
             **kwargs
@@ -85,3 +89,6 @@ def select_dataset_filtering(args: argparse.Namespace, dataset):
         filter_dataset_old(dataset)
     else:
         raise ValueError(f"Filtering method {args.filtering_method} is unknown.")
+
+def wandb_sweep_init():
+    pass
