@@ -15,7 +15,8 @@ def finetuning_training_loop():
     flair.set_seed(wandb.config.seed)
 
     dataset = select_dataset(wandb.config.dataset)
-    select_dataset_filtering(wandb.config.filtering_method, dataset)
+
+    select_dataset_filtering(dataset, wandb.config.filtering_method, k_shot_num)
 
     setfit_model_path = Path(GLOBAL_PATHS["contrastive_model_path"]) / GLOBAL_PATHS["contrastive_model_filename"]
     setfit_model = TokenClassifier.load(setfit_model_path)

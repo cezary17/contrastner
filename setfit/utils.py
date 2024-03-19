@@ -136,10 +136,10 @@ def select_dataset(dataset_name: str):
     return dataset
 
 
-def select_dataset_filtering(filter_type, dataset):
+def select_dataset_filtering(dataset: flair.data.Corpus, filter_type: str, k: int):
     logging.info(f"Selecting dataset filtering method with method {filter_type}")
     if filter_type == "k-shot":
-        filter_dataset(dataset)
+        filter_dataset(dataset, k)
     elif filter_type == "legacy":
         filter_dataset_old(dataset)
     else:

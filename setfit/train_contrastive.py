@@ -20,14 +20,14 @@ def setfit_training_loop():
     dataset_name = wandb.config.dataset
     dataset = select_dataset(dataset_name)
 
-    select_dataset_filtering(wandb.config.filtering_method, dataset)
+    select_dataset_filtering(dataset, wandb.config.filtering_method, k_shot_num)
     remove_dev_and_train(dataset)
 
     embeddings = TransformerWordEmbeddings(wandb.config.transformer_model)
     label_dictionary = dataset.make_label_dictionary("ner")
 
     # TODO: can be selected dynamically if not enough candidates found in the dataset
-    contrast_filtering_method = wandb.config.filtering_method
+    contrast_filtering_method = wandb.config.contrast_filtering_method
 
     model = SFTokenClassifier(
         embeddings=embeddings,

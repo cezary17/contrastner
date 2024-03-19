@@ -1,8 +1,11 @@
+import logging
 import typing
 from collections import defaultdict, Counter
 
 from flair.data import Corpus, Sentence
 from torch.utils.data.dataset import Subset
+
+log = logging.getLogger("flair")
 
 
 class KShotCounter(Counter):
@@ -32,8 +35,7 @@ class KShotCounter(Counter):
 
         return labels_dict
 
-    @staticmethod
-    def check_contrastable(labels: typing.Dict[str, int]) -> bool:
+    def check_contrastable(self, labels: typing.Dict[str, int]) -> bool:
         """
         Check if adding the given labels to the counter will exceed the k limit.
         Idea:
@@ -52,7 +54,8 @@ class KShotCounter(Counter):
         # Assert that we have at least one label for contrasting
         condition_contrastable = sum([count >= 1 for count in labels.values()]) >= 2
 
-        return condition_2_labels and condition_no_exceeding_2 and condition_excactly_2 and condition_contrastable
+        return condition_2_labels and condition_no_exceeding_2 and condition_excactly_2 and (
+                condition_contrastable or not self.allow_o_contrast)
 
     @staticmethod
     def find_target_label(labels: typing.Dict[str, int]) -> str:
@@ -97,7 +100,7 @@ class KShotCounter(Counter):
         return sum(self.values())
 
 
-def find_indices_kshot(corpus: Corpus, k: int) -> typing.List[int]:
+def find_indices_kshot(corpus: Corpus, k: int, allow_o_contrast: bool = False) -> typing.List[int]:
     corpus_labels = corpus.make_label_dictionary(label_type="ner").get_items()
 
     indices = []
@@ -109,30 +112,27 @@ def find_indices_kshot(corpus: Corpus, k: int) -> typing.List[int]:
         if counter.add_sentence(labels_dict):
             indices.append(sentence_index)
 
-        # elif counter.check_passable_sentence(labels_dict):
-        #     # Here the sentence is still a correct sentence but adding it would exceed the k limit
-        #     # Idea -> check if we can remove a sentence and add this one instead increasing the total label count
-        #     selected_sentences = [corpus.train[i] for i in indices]
-        #
-        #     for candidate_sentence in selected_sentences:
-        #         labels_dict = KShotCounter.make_labels_dict(candidate_sentence)
-        #
-        #         if counter.check_labels_increase_total(labels_dict):
-        #             indices.remove(sentence)
-        #             counter.remove_labels(labels_dict)
-        #
-        #             if counter.try_add_labels(labels_dict):
-        #                 indices.append(sentence_index)
-        #             else:
-        #                 raise ValueError("Error in replacement of sentence")
-        #
-        #             break
-
         if counter.is_full():
-            break
+            log.info(f"Counter is full, stopping early after {sentence_index} iterations")
+            return indices
 
-    assert counter.is_full(), f"Not enough sentences to satisfy k-shot criterion. State: {counter}"
-    return indices
+    if not counter.is_full() and allow_o_contrast:
+        log.info("Not enough sentences to satisfy k-shot criterion. State: {counter}")
+        log.info("Trying to find sentences with O contrast.")
+        counter.allow_o_contrast = True
+
+        for sentence_index, sentence in enumerate(corpus.train):
+            labels_dict = KShotCounter.make_labels_dict(sentence)
+
+            if counter.add_sentence(labels_dict):
+                indices.append(sentence_index)
+
+            if counter.is_full():
+                log.info(
+                    f"Counter is full after allowing O contrasting. Stopping early after {sentence_index} iterations.")
+                return indices
+
+    raise ValueError("Not enough sentences to satisfy k-shot criterion.")
 
 
 def find_indices_old(corpus: Corpus, fs_sentences_num: int) -> typing.List[int]:
@@ -175,7 +175,7 @@ def remove_dev_and_train(corpus: Corpus) -> typing.NoReturn:
     corpus._test = None
 
 
-def filter_dataset(corpus: Corpus, k: int = 5) -> typing.NoReturn:
+def filter_dataset(corpus: Corpus, k: int) -> typing.NoReturn:
     """
     Filter a corpus to only contain sentences with at least 2 labeled entities.
     :param corpus: The corpus to filter.
