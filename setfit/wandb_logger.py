@@ -79,7 +79,8 @@ class WandbLogger(TrainerPlugin):
 
         # log classification report as a wandb table
         try:
-            classification_report = pd.DataFrame(results["test_results"].classification_report)
+            classification_report = pd.DataFrame(results["test_results"].classification_report).reset_index().rename(
+                columns={"index": "metric"})
             classification_table = wandb.Table(dataframe=classification_report)
             self.wandb.log({"classification_report": classification_table})
         except KeyError:

@@ -77,20 +77,26 @@ def init_wandb_logger(args: argparse.Namespace, **kwargs):
 def sweep_config(args: argparse.Namespace):
     log.info(f"Creating sweep with args: {args}")
     return {
-        "method": "grid",
+        "method": "random",
         "metric": {"goal": "maximize", "name": "dev/macro avg/f1-score"},
         "parameters": {
             "max_epochs": {
-                "values": [1]
+                "values": [25, 50, 75]
             },
             "learning_rate": {
-                "values": [1e-4]
+                "values": [1e-3, 5e-4, 1e-4]
             },
             "batch_gradient_size": {
-                "values": [(4, 4), (8, 8)]
+                "value": (16, 16)
             },
             "dataset": {
-                "value": args.dataset
+                "values": ["CONLL03", "NER_ENGLISH_RESTAURANT"]
+            },
+            "k_shot_num": {
+                "value": args.k_shot_num
+            },
+            "seed": {
+                "value": args.seed
             },
             "transformer_model": {
                 "value": args.transformer_model
@@ -101,16 +107,9 @@ def sweep_config(args: argparse.Namespace):
             "filtering_method": {
                 "value": args.filtering_method
             },
-            "k_shot_num": {
-                "value": args.k_shot_num
-            },
             "contrast_filtering_method": {
                 "value": args.contrast_filtering_method
-            },
-            "seed": {
-                "value": args.seed
             }
-
         }
     }
 

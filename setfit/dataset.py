@@ -101,8 +101,9 @@ class KShotCounter(Counter):
 
 
 def find_indices_kshot(corpus: Corpus, k: int, allow_o_contrast: bool = False) -> typing.List[int]:
-    corpus_labels = corpus.make_label_dictionary(label_type="ner").get_items()
 
+    log.info(f"Starting to find indices for k-shot filtering with k={k}")
+    corpus_labels = corpus.make_label_dictionary(label_type="ner").get_items()
     indices = []
     counter = KShotCounter(k=k, labels=corpus_labels)
 

@@ -13,14 +13,15 @@ from setfit.wandb_logger import WandbLogger
 # from flair.trainers import ModelTrainer
 
 
-def setfit_training_loop():
+def contrastive_training_loop():
 
     flair.set_seed(wandb.config.seed)
 
     dataset_name = wandb.config.dataset
     dataset = select_dataset(dataset_name)
 
-    select_dataset_filtering(dataset, wandb.config.filtering_method, wandb.config.k_shot_num)
+    filtering_method, k_shot_num = wandb.config.filtering_method, wandb.config.k_shot_num
+    select_dataset_filtering(dataset, filtering_method, k_shot_num)
     remove_dev_and_train(dataset)
 
     embeddings = TransformerWordEmbeddings(wandb.config.transformer_model)
@@ -55,4 +56,4 @@ if __name__ == "__main__":
     init_wandb_logger(args, workflow="contrastive_only")
     flair.set_seed(wandb.config.seed)
 
-    setfit_training_loop()
+    contrastive_training_loop()
