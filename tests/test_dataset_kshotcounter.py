@@ -6,7 +6,7 @@ TEST_LABELS = ["PER", "ORG", "LOC", "MISC"]
 
 
 def test_create_counter():
-    counter = KShotCounter(k=3, labels=TEST_LABELS)
+    counter = KShotCounter(k=3, labels=TEST_LABELS, mode="contrastive")
     assert counter.k == 3
     assert counter['PER'] == 0
     assert counter['ORG'] == 0
@@ -20,7 +20,7 @@ def test_create_counter():
     ({"PER": 1, "ORG": 1, "LOC": 2, "MISC": 1}, {"PER": 0, "ORG": 0, "LOC": 1, "MISC": 0}),
 ])
 def test_add_sentence(labels, expected_counts):
-    counter = KShotCounter(k=3, labels=TEST_LABELS)
+    counter = KShotCounter(k=3, labels=TEST_LABELS, mode="contrastive")
     result = counter.add_sentence(labels)
     assert result
     assert all(counter[label] == expected_counts[label] for label in TEST_LABELS)
@@ -33,20 +33,20 @@ def test_add_sentence(labels, expected_counts):
     {"PER": 3, "LOC": 1, "MISC": 1}
 ])
 def test_add_malformed_sentence(labels):
-    counter = KShotCounter(k=3, labels=TEST_LABELS)
+    counter = KShotCounter(k=3, labels=TEST_LABELS, mode="contrastive")
     result = counter.add_sentence(labels)
     assert not result
     assert all(counter[label] == 0 for label in TEST_LABELS)
 
 
 def test_catch_bad_labels():
-    counter = KShotCounter(k=3, labels=TEST_LABELS)
+    counter = KShotCounter(k=3, labels=TEST_LABELS, mode="contrastive")
     with pytest.raises(KeyError):
         counter.add_sentence({"PER": 2, "ORG": 1, "BAD": 1})
 
 
 def test_overfill_counter():
-    counter = KShotCounter(k=3, labels=TEST_LABELS)
+    counter = KShotCounter(k=3, labels=TEST_LABELS, mode="contrastive")
     counter.add_sentence({"PER": 2, "MISC": 1})
     counter.add_sentence({"PER": 2, "MISC": 1})
     counter.add_sentence({"PER": 2, "MISC": 1})

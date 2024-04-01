@@ -9,11 +9,24 @@ log = logging.getLogger("flair")
 
 
 class KShotCounter(Counter):
-    def __init__(self, *args, k: int, labels: typing.List[str], **kwargs):
+    def __init__(self, *args, k: int, labels: typing.List[str], mode: str, **kwargs):
+        """
+        Counter for k-shot filtering.
+        :param args:
+        :param k:
+        :param labels:
+        :param mode: Possible values: "simple", "contrastive"
+        :param kwargs:
+        """
         super().__init__(*args, **kwargs)
         self.k = k
         self.counted_labels = labels
         self.update({label: 0 for label in labels})
+
+        if mode not in ["simple", "contrastive"]:
+            raise ValueError(f"Unknown mode {mode}")
+        self.mode = mode
+
         # if not enough workable labels exist we can try contrasting with O-Tokens
         self.allow_o_contrast = False
 
@@ -34,6 +47,14 @@ class KShotCounter(Counter):
             labels_dict[max_confidence_label["value"]] += 1
 
         return labels_dict
+
+    def check(self, labels: typing.Dict[str, int]) -> bool:
+        if self.mode == "simple":
+            return self.check_simple(labels)
+        elif self.mode == "contrastive":
+            return self.check_contrastable(labels)
+        else:
+            raise ValueError(f"ain't gon happen {self.mode}")
 
     def check_contrastable(self, labels: typing.Dict[str, int]) -> bool:
         """
@@ -58,6 +79,41 @@ class KShotCounter(Counter):
                 condition_contrastable or not self.allow_o_contrast)
 
     @staticmethod
+    def check_simple(labels: typing.Dict[str, int]) -> bool:
+        """
+        Check if adding labels to counter will exceed the k limit.
+        Here simple version -> just count labels and add those values to the counter.
+        :param labels:
+        :return:
+        """
+        # Find label with at least 2 instances
+        condition_2_labels = any([count >= 2 for count in labels.values()])
+
+        return condition_2_labels
+
+    def _add_to_counter(self, labels: typing.Dict[str, int]) -> bool:
+        """
+        Increment the counter with the given labels.
+        :param labels:
+        :return:
+        """
+        if self.mode == "simple":
+            # do the loop twice to not add anything to the counter before we get through all labels
+            for label, count in labels.items():
+                if self[label] + count > self.k:
+                    return False
+            for label, count in labels.items():
+                self[label] += count
+            return True
+
+        elif self.mode == "contrastive":
+            target_label = self.find_target_label(labels)
+            if self[target_label] < self.k:
+                self[target_label] += 1
+                return True
+            return False
+
+    @staticmethod
     def find_target_label(labels: typing.Dict[str, int]) -> str:
         """
         Find the label with 2 instances.
@@ -79,16 +135,10 @@ class KShotCounter(Counter):
             unexpected_labels = [label for label in labels.keys() if label not in self.counted_labels]
             raise KeyError(f"Unexpected labels found in input: {unexpected_labels}")
 
-        if not self.check_contrastable(labels):
+        if not self.check(labels):
             return False
 
-        target_label = self.find_target_label(labels)
-
-        if self[target_label] < self.k:
-            self[target_label] += 1
-            return True
-
-        return False
+        return self._add_to_counter(labels)
 
     def is_full(self) -> bool:
         overflow = any([count > self.k for count in self.values()])
@@ -101,7 +151,6 @@ class KShotCounter(Counter):
 
 
 def find_indices_kshot(corpus: Corpus, k: int, allow_o_contrast: bool = False) -> typing.List[int]:
-
     log.info(f"Starting to find indices for k-shot filtering with k={k}")
     corpus_labels = corpus.make_label_dictionary(label_type="ner").get_items()
     indices = []
