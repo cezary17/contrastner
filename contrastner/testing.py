@@ -1,5 +1,5 @@
 import random
-from setfit.dataset import filter_dataset, find_indices_old
+from contrastner.dataset import filter_dataset, find_indices_old
 import numpy as np
 
 from flair.datasets import CONLL_03

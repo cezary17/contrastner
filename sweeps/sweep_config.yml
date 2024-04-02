@@ -1,0 +1,28 @@
+program: code/contrastner/contrastner/train_sweep.py
+method: random
+metric:
+  goal: maximize
+  name: dev/macro avg/f1-score
+parameters:
+  run_type:
+    values: [contrastive, baseline]
+  max_epochs:
+    value: 5
+  learning_rate:
+    value: 0.0001
+  batch_size:
+    value: 16
+  dataset:
+    value: CONLL03
+  k_shot_num:
+    value: 5
+  seed:
+    values: [0, 1, 2]
+  contrast_filtering_method:
+    value: no-o
+  filtering_method:
+    value: k-shot
+  tag_type:
+    value: BIO
+  transformer_model:
+    value: bert-base-uncased

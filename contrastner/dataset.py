@@ -154,7 +154,7 @@ def find_indices_kshot(corpus: Corpus, k: int, allow_o_contrast: bool = False) -
     log.info(f"Starting to find indices for k-shot filtering with k={k}")
     corpus_labels = corpus.make_label_dictionary(label_type="ner").get_items()
     indices = []
-    counter = KShotCounter(k=k, labels=corpus_labels)
+    counter = KShotCounter(k=k, labels=corpus_labels, mode="contrastive")
 
     for sentence_index, sentence in enumerate(corpus.train):
         labels_dict = KShotCounter.make_labels_dict(sentence)

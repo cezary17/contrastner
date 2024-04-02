@@ -5,10 +5,10 @@ import wandb
 from flair.models import TokenClassifier
 
 # from flair.trainers import ModelTrainer
-from setfit.trainers import ModelTrainer
-from setfit.utils import init_wandb_logger, select_dataset, select_dataset_filtering, parse_training_arguments, \
+from contrastner.trainers import ModelTrainer
+from contrastner.utils import init_wandb_logger, select_dataset, select_dataset_filtering, parse_training_arguments, \
     GLOBAL_PATHS
-from setfit.wandb_logger import WandbLogger
+from contrastner.wandb_logger import WandbLogger
 
 
 def finetuning_training_loop():
@@ -38,8 +38,7 @@ def finetuning_training_loop():
         GLOBAL_PATHS["save_path"],
         learning_rate=wandb.config.learning_rate,
         max_epochs=wandb.config.max_epochs,
-        mini_batch_size=wandb.config.batch_gradient_size[0],
-        mini_batch_chunk_size=wandb.config.batch_gradient_size[1],
+        mini_batch_size=wandb.config.batch_size,
         plugins=[wandb_logger]
     )
 

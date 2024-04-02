@@ -1,4 +1,4 @@
-name: fsner
+name: contrastner
 channels:
     - conda-forge
     - defaults
@@ -14,3 +14,4 @@ dependencies:
   - pip:
     - flair
     - jupyter
+    - -e .

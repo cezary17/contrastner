@@ -1,2 +1,2 @@
-# fewshot-ner-thesis
+# contrastner
 Repository for my few-shot NER Thesis

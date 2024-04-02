@@ -1,25 +1,19 @@
-[tool.poetry]
-name = "fewshot-ner-thesis"
-version = "0.1.0"
-description = ""
-authors = ["cezary17 <cezarykujath@gmail.com>"]
-license = "MIT"
-readme = "README.md"
-
-[tool.poetry.dependencies]
-python = "^3.12"
-numpy = "^1.26.4"
-pandas = "^2.2.1"
-matplotlib = "^3.8.3"
-seaborn = "^0.13.2"
-wandb = "^0.16.4"
-torch = "^2.2.1"
-flair = "^0.13.1"
-
-[tool.poetry.group.dev.dependencies]
-jupyter = "^1.0.0"
-pytest = "^8.1.1"
-
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "contrastner"
+version = "0.0.1"
+description = "Python package for thesis"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {file = "LICENSE"}
+
+authors = [
+  {name = "Cezary Kujath", email = "cezary.kujath@hu-berlin.de" }
+]
+maintainers = [
+  {name = "Cezary Kujath", email = "cezary.kujath@hu-berlin.de" }
+]

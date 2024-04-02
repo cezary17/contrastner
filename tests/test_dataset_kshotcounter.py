@@ -1,6 +1,6 @@
 import pytest
 
-from setfit.dataset import KShotCounter
+from src.dataset import KShotCounter
 
 TEST_LABELS = ["PER", "ORG", "LOC", "MISC"]
 

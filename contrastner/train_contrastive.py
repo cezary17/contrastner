@@ -2,12 +2,12 @@ import flair
 import wandb
 from flair.embeddings import TransformerWordEmbeddings
 
-from setfit.dataset import remove_dev_and_train
-from setfit.modeling import SFTokenClassifier
-from setfit.trainers import ModelTrainer
-from setfit.utils import select_dataset, select_dataset_filtering, parse_training_arguments, init_wandb_logger, \
+from contrastner.dataset import remove_dev_and_train
+from contrastner.modeling import SFTokenClassifier
+from contrastner.trainers import ModelTrainer
+from contrastner.utils import select_dataset, select_dataset_filtering, parse_training_arguments, init_wandb_logger, \
     GLOBAL_PATHS
-from setfit.wandb_logger import WandbLogger
+from contrastner.wandb_logger import WandbLogger
 
 
 # from flair.trainers import ModelTrainer
@@ -45,8 +45,7 @@ def contrastive_training_loop():
         GLOBAL_PATHS["contrastive_model_path"],
         learning_rate=wandb.config.learning_rate,
         max_epochs=wandb.config.max_epochs,
-        mini_batch_size=wandb.config.batch_gradient_size[0],
-        mini_batch_chunk_size=wandb.config.batch_gradient_size[1],
+        mini_batch_size=wandb.config.batch_size,
         plugins=[wandb_logger]
     )
 

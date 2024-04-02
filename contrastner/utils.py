@@ -6,8 +6,8 @@ import flair
 import wandb
 from flair.datasets import CONLL_03, WNUT_17, FEWNERD, ONTONOTES, NER_ENGLISH_MOVIE_SIMPLE, NER_ENGLISH_RESTAURANT
 
-from setfit.dataset import filter_dataset, filter_dataset_old
-from setfit.wandb_logger import WandbLogger
+from contrastner.dataset import filter_dataset, filter_dataset_old
+from contrastner.wandb_logger import WandbLogger
 
 log = logging.getLogger("flair")
 
@@ -22,9 +22,9 @@ class AvailableDataset(Enum):
 
 
 GLOBAL_PATHS = {
-    "contrastive_model_path": "resources/setfit/contrastive/",
+    "contrastive_model_path": "resources/contrastner/contrastive/",
     "contrastive_model_filename": "final-model.pt",
-    "save_path": "resources/setfit/finetune"
+    "save_path": "resources/contrastner/finetune"
 }
 
 
@@ -77,26 +77,30 @@ def init_wandb_logger(args: argparse.Namespace, **kwargs):
 def sweep_config(args: argparse.Namespace):
     log.info(f"Creating sweep with args: {args}")
     return {
-        "method": "random",
+        "method": "grid",
         "metric": {"goal": "maximize", "name": "dev/macro avg/f1-score"},
         "parameters": {
+            "run_type": {
+                # "values": ["contrastive", "baseline"]
+                "values": ["baseline"]
+            },
             "max_epochs": {
-                "values": [25, 50, 75]
+                "value": 50
             },
             "learning_rate": {
-                "values": [1e-3, 5e-4, 1e-4]
+                "value": 1e-4
             },
-            "batch_gradient_size": {
-                "value": (16, 16)
+            "batch_size": {
+                "value": 16
             },
             "dataset": {
-                "values": ["CONLL03", "NER_ENGLISH_RESTAURANT"]
+                "value": "CONLL03"
             },
             "k_shot_num": {
                 "value": args.k_shot_num
             },
             "seed": {
-                "value": args.seed
+                "values": [0, 1, 2]
             },
             "transformer_model": {
                 "value": args.transformer_model
