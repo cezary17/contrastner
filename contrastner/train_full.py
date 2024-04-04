@@ -39,6 +39,5 @@ if __name__ == "__main__":
     args = parse_training_arguments()
     if args.sweep:
         sweep_id = wandb.sweep(sweep=sweep_config(args), project="fsner")
-        # wandb.agent(sweep_id, function=train_full_sweep, count=10)
     else:
         train_full()

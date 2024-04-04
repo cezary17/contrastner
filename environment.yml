@@ -1,5 +1,7 @@
 name: contrastner
 channels:
+    - nvidia
+    - pytorch
     - conda-forge
     - defaults
 dependencies:
@@ -9,7 +11,10 @@ dependencies:
   - matplotlib
   - seaborn
   - wandb
-  - pytorch::pytorch
+  - pytorch
+  - transformers
+  - datasets
+  - pytorch-cuda=12.1
   - pip
   - pip:
     - flair

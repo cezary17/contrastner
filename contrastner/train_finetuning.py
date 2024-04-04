@@ -4,9 +4,9 @@ import flair
 import wandb
 from flair.models import TokenClassifier
 
-# from flair.trainers import ModelTrainer
+from contrastner.dataset import KShotCounter
 from contrastner.trainers import ModelTrainer
-from contrastner.utils import init_wandb_logger, select_dataset, select_dataset_filtering, parse_training_arguments, \
+from contrastner.utils import init_wandb_logger, select_corpus, select_dataset_filtering, parse_training_arguments, \
     GLOBAL_PATHS
 from contrastner.wandb_logger import WandbLogger
 
@@ -14,15 +14,23 @@ from contrastner.wandb_logger import WandbLogger
 def finetuning_training_loop():
     flair.set_seed(wandb.config.seed)
 
-    dataset = select_dataset(wandb.config.dataset)
+    flair.set_seed(wandb.config.seed)
 
-    filtering_method, k_shot_num = wandb.config.filtering_method, wandb.config.k_shot_num
-    select_dataset_filtering(dataset, filtering_method, k_shot_num)
+    corpus = select_corpus(wandb.config.dataset)
 
+    k_shot_counter = KShotCounter(
+        k=wandb.config.k_shot_num,
+        mode=wandb.config.filtering_method,
+        simple_cutoff=wandb.config.filtering_cutoff,
+        remove_dev=True,
+        shuffle=True,
+    )
+
+    k_shot_counter(corpus)
+
+    label_dictionary = corpus.make_label_dictionary(label_type="ner")
     setfit_model_path = Path(GLOBAL_PATHS["contrastive_model_path"]) / GLOBAL_PATHS["contrastive_model_filename"]
     setfit_model = TokenClassifier.load(setfit_model_path)
-
-    label_dictionary = dataset.make_label_dictionary("ner")
 
     model = TokenClassifier(
         embeddings=setfit_model.embeddings,  # only use the contrastive pretrained encoder
@@ -31,7 +39,7 @@ def finetuning_training_loop():
         span_encoding=wandb.config.tag_type,
     )
 
-    trainer = ModelTrainer(model, dataset)
+    trainer = ModelTrainer(model, corpus)
     wandb_logger = WandbLogger(wandb=wandb)
 
     trainer.fine_tune(

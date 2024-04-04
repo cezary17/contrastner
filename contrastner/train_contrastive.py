@@ -2,32 +2,41 @@ import flair
 import wandb
 from flair.embeddings import TransformerWordEmbeddings
 
-from contrastner.dataset import remove_dev_and_train
+from contrastner.dataset import KShotCounter
 from contrastner.modeling import SFTokenClassifier
 from contrastner.trainers import ModelTrainer
-from contrastner.utils import select_dataset, select_dataset_filtering, parse_training_arguments, init_wandb_logger, \
+from contrastner.utils import select_corpus, parse_training_arguments, init_wandb_logger, \
     GLOBAL_PATHS
 from contrastner.wandb_logger import WandbLogger
 
 
-# from flair.trainers import ModelTrainer
-
-
 def contrastive_training_loop():
-
     flair.set_seed(wandb.config.seed)
 
-    dataset_name = wandb.config.dataset
-    dataset = select_dataset(dataset_name)
+    corpus = select_corpus(wandb.config.dataset)
 
-    filtering_method, k_shot_num = wandb.config.filtering_method, wandb.config.k_shot_num
-    select_dataset_filtering(dataset, filtering_method, k_shot_num)
-    remove_dev_and_train(dataset)
+    k_shot_counter = KShotCounter(
+        k=wandb.config.k_shot_num,
+        mode=wandb.config.filtering_method,
+        simple_cutoff=wandb.config.filtering_cutoff,
+        remove_dev=True,
+        shuffle=True,
+    )
 
-    embeddings = TransformerWordEmbeddings(wandb.config.transformer_model)
-    label_dictionary = dataset.make_label_dictionary("ner")
+    k_shot_counter(corpus)
 
-    # TODO: can be selected dynamically if not enough candidates found in the dataset
+    embeddings = TransformerWordEmbeddings(
+        wandb.config.transformer_model,
+        layers="-1",
+        subtoken_pooling="first",
+        fine_tune=True,
+        use_context=False,
+        use_crf=False,
+        use_rnn=False,
+        reproject_embeddings=False
+    )
+
+    label_dictionary = corpus.make_label_dictionary(label_type="ner")
     contrast_filtering_method = wandb.config.contrast_filtering_method
 
     model = SFTokenClassifier(
@@ -38,7 +47,7 @@ def contrastive_training_loop():
         contrast_filtering_method=contrast_filtering_method
     )
 
-    trainer = ModelTrainer(model, dataset)
+    trainer = ModelTrainer(model, corpus)
     wandb_logger = WandbLogger(wandb=wandb)
 
     trainer.fine_tune(

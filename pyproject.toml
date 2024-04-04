@@ -2,7 +2,6 @@
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
-
 [project]
 name = "contrastner"
 version = "0.0.1"
@@ -17,3 +16,6 @@ authors = [
 maintainers = [
   {name = "Cezary Kujath", email = "cezary.kujath@hu-berlin.de" }
 ]
+
+[tool.setuptools]
+packages = ["contrastner"]

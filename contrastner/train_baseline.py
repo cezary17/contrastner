@@ -4,32 +4,51 @@ from flair.embeddings import TransformerWordEmbeddings
 from flair.models import TokenClassifier
 from flair.trainers import ModelTrainer
 
-from contrastner.utils import select_dataset, select_dataset_filtering, filter_dataset, GLOBAL_PATHS
+from contrastner.dataset import KShotCounter
+from contrastner.utils import select_corpus, GLOBAL_PATHS, init_wandb_logger, parse_training_arguments
 from contrastner.wandb_logger import WandbLogger
 
 
 def baseline_train_loop():
     flair.set_seed(wandb.config.seed)
 
-    dataset = select_dataset(wandb.config.dataset)
-    select_dataset_filtering(dataset, wandb.config.filtering_method, wandb.config.k_shot_num)
+    corpus = select_corpus(wandb.config.dataset)
+    label_dictionary = corpus.make_label_dictionary(label_type="ner")
 
-    label_dictionary = dataset.make_label_dictionary(label_type="ner")
+    k_shot_counter = KShotCounter(
+        k=wandb.config.k_shot_num,
+        mode=wandb.config.filtering_method,
+        simple_cutoff=wandb.config.filtering_cutoff,
+        remove_dev=True,
+        shuffle=True,
+    )
 
-    embeddings = TransformerWordEmbeddings(wandb.config.transformer_model)
+    k_shot_counter(corpus)
+
+    embeddings = TransformerWordEmbeddings(
+        wandb.config.transformer_model,
+        layers="-1",
+        subtoken_pooling="first",
+        fine_tune=True,
+        use_context=False,
+        use_crf=False,
+        use_rnn=False,
+        reproject_embeddings=False
+    )
 
     model = TokenClassifier(
-        embeddings=embeddings,  # only use the contrastive pretrained encoder
+        embeddings=embeddings,
         label_dictionary=label_dictionary,
         label_type="ner",
         span_encoding=wandb.config.tag_type,
     )
 
-    trainer = ModelTrainer(model, dataset)
+    trainer = ModelTrainer(model, corpus)
     wandb_logger = WandbLogger(wandb=wandb)
 
     trainer.fine_tune(
         GLOBAL_PATHS["save_path"],
+        learning_rate=wandb.config.learning_rate,
         max_epochs=wandb.config.max_epochs,
         mini_batch_size=wandb.config.batch_size,
         plugins=[wandb_logger]
@@ -37,4 +56,8 @@ def baseline_train_loop():
 
 
 if __name__ == "__main__":
+    args = parse_training_arguments()
+    init_wandb_logger(args, workflow="baseline")
+    flair.set_seed(wandb.config.seed)
+
     baseline_train_loop()

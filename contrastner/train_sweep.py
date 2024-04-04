@@ -2,11 +2,13 @@ import logging
 
 import wandb
 
-from train_baseline import baseline_train_loop
-from train_contrastive import contrastive_training_loop
-from train_finetuning import finetuning_training_loop
+from contrastner.train_baseline import baseline_train_loop
+from contrastner.train_contrastive import contrastive_training_loop
+from contrastner.train_finetuning import finetuning_training_loop
 
 log = logging.getLogger("flair")
+
+import argparse
 
 
 def train_full_sweep():
@@ -23,4 +25,10 @@ def train_full_sweep():
 
 
 if __name__ == "__main__":
-    train_full_sweep()
+    # train_full_sweep()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--sweep_id", type=str)
+    parser.add_argument("--count", type=int, default=10)
+
+    args = parser.parse_args()
+    wandb.agent(args.sweep_id, function=train_full_sweep, count=args.count)

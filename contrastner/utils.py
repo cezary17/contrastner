@@ -6,9 +6,6 @@ import flair
 import wandb
 from flair.datasets import CONLL_03, WNUT_17, FEWNERD, ONTONOTES, NER_ENGLISH_MOVIE_SIMPLE, NER_ENGLISH_RESTAURANT
 
-from contrastner.dataset import filter_dataset, filter_dataset_old
-from contrastner.wandb_logger import WandbLogger
-
 log = logging.getLogger("flair")
 
 
@@ -36,15 +33,15 @@ def parse_training_arguments():
     parser.add_argument("--dataset", type=str, default="CONLL03")
     parser.add_argument("--transformer_model", type=str, default="bert-base-uncased")
     parser.add_argument("--tag_type", type=str, default="BIO")
-    parser.add_argument("--filtering_method", type=str, default="k-shot")  # legacy, k-shot
+    parser.add_argument("--filtering_method", type=str, default="simple")  # contrastive, simple
     parser.add_argument("--k_shot_num", type=int, default=5)
+    parser.add_argument("--filtering_cutoff", type=int, default=1)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--contrast_filtering_method", type=str, default="no-o")
     # hyperparameters
     parser.add_argument("--max_epochs", type=int, default=1)
     parser.add_argument("--learning_rate", type=float, default=3e-5)
     parser.add_argument("--batch_size", type=int, default=4)
-    parser.add_argument("--gradient_accumulation_size", type=int, default=4)  # this always needs to be <= batch size
 
     return parser.parse_args()
 
@@ -61,43 +58,43 @@ def init_wandb_logger(args: argparse.Namespace, **kwargs):
             "k_shot_num": args.k_shot_num,
             "seed": args.seed,
             "contrast_filtering_method": args.contrast_filtering_method,
+            "filtering_cutoff": args.filtering_cutoff,
 
             # hyperparameters
             "learning_rate": args.learning_rate,
-            "batch_gradient_size": (args.batch_size, args.gradient_accumulation_size),
+            "batch_size": args.batch_size,
             "max_epochs": args.max_epochs,
             **kwargs
         }
     )
 
-    wandb_logger = WandbLogger(wandb=wandb)
-    return wandb_logger
-
 
 def sweep_config(args: argparse.Namespace):
     log.info(f"Creating sweep with args: {args}")
     return {
-        "method": "grid",
+        "method": "random",
         "metric": {"goal": "maximize", "name": "dev/macro avg/f1-score"},
         "parameters": {
             "run_type": {
-                # "values": ["contrastive", "baseline"]
-                "values": ["baseline"]
+                "values": ["contrastive", "baseline"]
             },
             "max_epochs": {
-                "value": 50
+                "value": [50]
             },
             "learning_rate": {
-                "value": 1e-4
+                "values": [1e-4, 5e-5, 1e-5]
             },
             "batch_size": {
-                "value": 16
+                "value": args.batch_size
             },
             "dataset": {
-                "value": "CONLL03"
+                "value": args.dataset
             },
             "k_shot_num": {
                 "value": args.k_shot_num
+            },
+            "filtering_cutoff": {
+                "value": args.filtering_cutoff
             },
             "seed": {
                 "values": [0, 1, 2]
@@ -118,7 +115,7 @@ def sweep_config(args: argparse.Namespace):
     }
 
 
-def select_dataset(dataset_name: str):
+def select_corpus(dataset_name: str) -> flair.data.Corpus:
     logging.info(f"Selecting dataset {dataset_name}")
     match AvailableDataset[dataset_name.upper()]:
         case AvailableDataset.CONLL03:
@@ -137,13 +134,3 @@ def select_dataset(dataset_name: str):
             raise ValueError(f"Dataset {dataset_name} is unknown.")
 
     return dataset
-
-
-def select_dataset_filtering(dataset: flair.data.Corpus, filter_type: str, k: int):
-    logging.info(f"Selecting dataset filtering method with method {filter_type}")
-    if filter_type == "k-shot":
-        filter_dataset(dataset, k)
-    elif filter_type == "legacy":
-        filter_dataset_old(dataset)
-    else:
-        raise ValueError(f"Filtering method {filter_type} is unknown.")
