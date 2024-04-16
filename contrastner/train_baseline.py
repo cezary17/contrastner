@@ -2,11 +2,11 @@ import flair
 import wandb
 from flair.embeddings import TransformerWordEmbeddings
 from flair.models import TokenClassifier
-from flair.trainers import ModelTrainer
 
 from contrastner.dataset import KShotCounter
 from contrastner.utils import select_corpus, GLOBAL_PATHS, init_wandb_logger, parse_training_arguments
 from contrastner.wandb_logger import WandbLogger
+from contrastner.trainers import ModelTrainer
 
 
 def baseline_train_loop():
@@ -21,6 +21,7 @@ def baseline_train_loop():
         simple_cutoff=wandb.config.filtering_cutoff,
         remove_dev=True,
         shuffle=True,
+        shuffle_seed=wandb.config.seed
     )
 
     k_shot_counter(corpus)

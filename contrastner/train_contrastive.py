@@ -8,6 +8,8 @@ from contrastner.trainers import ModelTrainer
 from contrastner.utils import select_corpus, parse_training_arguments, init_wandb_logger, GLOBAL_PATHS
 from contrastner.wandb_logger import WandbLogger
 
+from contrastner.analysis.sentence_logger import log_selected_sentences
+
 
 def contrastive_training_loop():
     flair.set_seed(wandb.config.seed)
@@ -21,9 +23,12 @@ def contrastive_training_loop():
         remove_dev=True,
         remove_test=True,
         shuffle=True,
+        shuffle_seed=wandb.config.seed
     )
 
     k_shot_counter(corpus)
+
+    log_selected_sentences(corpus)
 
     embeddings = TransformerWordEmbeddings(
         wandb.config.transformer_model,

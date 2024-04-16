@@ -1,16 +1,25 @@
 import logging
 import typing
-from collections import defaultdict, Counter
+from collections import defaultdict
 
 from flair.data import Corpus, Sentence
 from torch.utils.data.dataset import Subset
 
 log = logging.getLogger("flair")
 
+import numpy as np
+
 
 class KShotCounter:
-    def __init__(self, k: int, mode: str, simple_cutoff: int = 1,
-                 remove_dev: bool = False, remove_test: bool = False, shuffle: bool = False):
+    def __init__(
+            self,
+            k: int,
+            mode: str,
+            simple_cutoff: int = 1,
+            remove_dev: bool = False,
+            remove_test: bool = False,
+            shuffle: bool = False,
+            shuffle_seed: int = 0):
         """
         Counter for k-shot filtering.
         :param k: The number of instances for each label.
@@ -29,10 +38,12 @@ class KShotCounter:
         self.remove_dev = remove_dev
         self.remove_test = remove_test
         self.shuffle = shuffle
+        self.shuffle_seed = shuffle_seed
 
         self.indices = []
         self.counted_labels = None
         self.labels = None
+        self.iterating_order = None
 
     def __getitem__(self, key):
         return self.labels[key]
@@ -44,16 +55,15 @@ class KShotCounter:
         assert isinstance(value, int), "Can only add integers to KShotCounter"
         self[key] = self[key] + value
 
-    def __isub__(self,key, other):
+    def __isub__(self, key, other):
         assert isinstance(other, int), "Can only subtract integers from KShotCounter"
         self[key] = self[key] - other
-
 
     def values(self):
         return self.labels.values()
 
     @staticmethod
-    def _make_labels_dict(sentence: Sentence) -> typing.Dict[str, int]:
+    def make_labels_dict(sentence: Sentence) -> typing.Dict[str, int]:
 
         sentence_dict = sentence.to_dict(tag_type="ner")
         labels_dict = defaultdict(int)
@@ -152,7 +162,7 @@ class KShotCounter:
         :return: True if the sentence was added, False otherwise.
         """
         if isinstance(labels, Sentence):
-            labels = self._make_labels_dict(labels)
+            labels = self.make_labels_dict(labels)
 
         if not self._check(labels):
             return False
@@ -171,15 +181,19 @@ class KShotCounter:
     def _find_indices(self, corpus: Corpus):
         log.info(f"Starting to find indices for k-shot filtering with k={self.k}")
 
-        for sentence_index, sentence in enumerate(corpus.train):
-            labels_dict = self._make_labels_dict(sentence)
+        iteration = 0
+        for sentence_index in self.iterating_order:
+            sentence = corpus.train[sentence_index]
+            labels_dict = self.make_labels_dict(sentence)
 
             if self._add_sentence(labels_dict):
                 self.indices.append(sentence_index)
 
             if self._is_full():
-                log.info(f"Counter is full, stopping early after {sentence_index} iterations")
+                log.info(f"Counter is full, stopping early after {iteration} iterations")
                 return self.indices
+
+            iteration += 1
 
     def _prep_dataset(self, corpus: Corpus):
         self._find_indices(corpus)
@@ -191,46 +205,13 @@ class KShotCounter:
 
     def __call__(self, corpus: Corpus, *args, **kwargs):
         self.counted_labels = corpus.make_label_dictionary(label_type="ner").get_items()
+
+        if self.shuffle:
+            np.random.seed(self.shuffle_seed)
+            self.iterating_order = np.random.permutation(len(corpus.train))
+        else:
+            self.iterating_order = np.arange(len(corpus.train))
+
         self.labels = defaultdict(int, {label: 0 for label in self.counted_labels})
         self._prep_dataset(corpus)
 
-
-def find_indices(corpus: Corpus, k: int, mode: str = "simple") -> typing.List[int]:
-    log.info(f"Starting to find indices for k-shot filtering with k={k}")
-    corpus_labels = corpus.make_label_dictionary(label_type="ner").get_items()
-    indices = []
-    counter = KShotCounter(k=k, labels=corpus_labels, mode=mode)
-
-    for sentence_index, sentence in enumerate(corpus.train):
-        labels_dict = KShotCounter._make_labels_dict(sentence)
-
-        if counter._add_sentence(labels_dict):
-            indices.append(sentence_index)
-
-        if counter._is_full():
-            log.info(f"Counter is full, stopping early after {sentence_index} iterations")
-            return indices
-
-    raise ValueError("Not enough sentences to satisfy k-shot criterion.")
-
-
-def remove_test_and_dev(corpus: Corpus) -> typing.NoReturn:
-    """
-    Remove the dev and test split from a corpus.
-    :param corpus: The corpus to remove the dev and test split from.
-    :return: None
-    """
-    corpus._dev = None
-    corpus._test = None
-
-
-def filter_dataset(corpus: Corpus, k: int) -> typing.NoReturn:
-    """
-    Filter a corpus to only contain sentences with at least 2 labeled entities.
-    :param corpus: The corpus to filter.
-    :param k: Number labels for low-resource task.
-    :return: None
-    """
-
-    indices = find_indices(corpus, k)
-    corpus._train = Subset(corpus.train, indices)

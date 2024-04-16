@@ -31,7 +31,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--sweep_id", type=str)
     parser.add_argument("--count", type=int, default=10)
-    flair.device = torch.device("cuda:0")
-
+    parser.add_argument("--device", type=str, default="0")
     args = parser.parse_args()
+
+    flair.device = torch.device(f"cuda:{args.device}")
     wandb.agent(args.sweep_id, function=train_full_sweep, count=args.count)

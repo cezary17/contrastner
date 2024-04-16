@@ -1,11 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import seaborn as sns
+from PIL import Image
+import wandb
 
-
-def generate_classification_heatmap(data: dict):
+def generate_classification_heatmap(data: dict) -> Image.Image:
     data = {key.upper().replace(" ", "-"): val for key, val in data.items()}
 
+    mpl.rcParams['figure.dpi'] = 600
     # Extract labels
     labels = list(data.keys())
 
@@ -18,7 +21,7 @@ def generate_classification_heatmap(data: dict):
 
     # Create the heatmap
     fig, ax = plt.subplots()
-    fig.set_size_inches(10, 5)
+    fig.set_size_inches(14, 7)
     heatmap = ax.pcolor(data_array, cmap=sns.color_palette("magma", as_cmap=True)
                         )
 
@@ -29,7 +32,12 @@ def generate_classification_heatmap(data: dict):
     ax.set_yticks(np.arange(3) + 0.5)
     ax.set_yticklabels(["Precision", "Recall", "F1-Score"])
 
-    ax.set_title("Classification Heatmap")
+    try:
+        run_name = wandb.run.name
+    except AttributeError:
+        run_name = "UNKNOWN_RUN"
+
+    ax.set_title(f"Classification Heatmap of run {run_name}")
 
     # Add colorbar
     fig.colorbar(heatmap, label="Score")
@@ -43,4 +51,8 @@ def generate_classification_heatmap(data: dict):
         ax.text(j + 0.5, i, format_grid_value(z), ha='center', va='center', fontsize=8,
                 bbox=dict(boxstyle='round', facecolor='white', edgecolor='0.3'))
 
-    return fig
+    fig.tight_layout()
+    fig.canvas.draw()
+
+    image = Image.frombytes('RGB', fig.canvas.get_width_height(),fig.canvas.tostring_rgb())
+    return image

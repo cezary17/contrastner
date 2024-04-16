@@ -21,6 +21,7 @@ def finetuning_training_loop():
         simple_cutoff=wandb.config.filtering_cutoff,
         remove_dev=True,
         shuffle=True,
+        shuffle_seed=wandb.config.seed
     )
 
     k_shot_counter(corpus)

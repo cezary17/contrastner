@@ -72,16 +72,14 @@ def init_wandb_logger(args: argparse.Namespace, **kwargs):
 def sweep_config(args: argparse.Namespace):
     log.info(f"Creating sweep with args: {args}")
     return {
-        "method": "random",
+        "method": "grid",
         "metric": {"goal": "maximize", "name": "test_score"},
         "parameters": {
             "run_type": {
                 "values": ["contrastive", "baseline"]
             },
             "seed": {
-                "distribution": "int_uniform",
-                "min": 0,
-                "max": 100
+                "values": [37, 40, 57, 60, 92]
             },
             "max_epochs": {
                 "value": 50

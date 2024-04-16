@@ -95,8 +95,8 @@ class WandbLogger(TrainerPlugin):
             classification_table = wandb.Table(dataframe=classification_report)
             self.wandb.log({"classification_report": classification_table})
             # As heatmap
-            heatmap = generate_classification_heatmap(results["test_results"].classification_report)
-            wandb.log({"classification_heatmap": heatmap})
+            heatmap_image = generate_classification_heatmap(results["test_results"].classification_report)
+            self.wandb.log({"classification_heatmap": wandb.Image(heatmap_image)})
         except KeyError:
             log.info("No test_results available, skipping classification report")
 
