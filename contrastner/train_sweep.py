@@ -1,5 +1,7 @@
 import logging
 
+import flair
+import torch
 import wandb
 
 from contrastner.train_baseline import baseline_train_loop
@@ -29,6 +31,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--sweep_id", type=str)
     parser.add_argument("--count", type=int, default=10)
+    flair.device = torch.device("cuda:0")
 
     args = parser.parse_args()
     wandb.agent(args.sweep_id, function=train_full_sweep, count=args.count)

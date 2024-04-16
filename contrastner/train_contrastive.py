@@ -5,8 +5,7 @@ from flair.embeddings import TransformerWordEmbeddings
 from contrastner.dataset import KShotCounter
 from contrastner.modeling import SFTokenClassifier
 from contrastner.trainers import ModelTrainer
-from contrastner.utils import select_corpus, parse_training_arguments, init_wandb_logger, \
-    GLOBAL_PATHS
+from contrastner.utils import select_corpus, parse_training_arguments, init_wandb_logger, GLOBAL_PATHS
 from contrastner.wandb_logger import WandbLogger
 
 
@@ -20,6 +19,7 @@ def contrastive_training_loop():
         mode=wandb.config.filtering_method,
         simple_cutoff=wandb.config.filtering_cutoff,
         remove_dev=True,
+        remove_test=True,
         shuffle=True,
     )
 

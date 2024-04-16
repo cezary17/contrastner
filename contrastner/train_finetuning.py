@@ -6,14 +6,11 @@ from flair.models import TokenClassifier
 
 from contrastner.dataset import KShotCounter
 from contrastner.trainers import ModelTrainer
-from contrastner.utils import init_wandb_logger, select_corpus, select_dataset_filtering, parse_training_arguments, \
-    GLOBAL_PATHS
+from contrastner.utils import init_wandb_logger, select_corpus, parse_training_arguments, GLOBAL_PATHS
 from contrastner.wandb_logger import WandbLogger
 
 
 def finetuning_training_loop():
-    flair.set_seed(wandb.config.seed)
-
     flair.set_seed(wandb.config.seed)
 
     corpus = select_corpus(wandb.config.dataset)

@@ -799,7 +799,7 @@ class ModelTrainer(Pluggable):
                 # get and return the final test score of best model
                 self.return_values["test_score"] = test_results.main_score
 
-                # TODO ask about this and if it is necessary
+                # TODO: ask about this and if it is necessary
                 self.return_values["test_results"] = test_results
 
             else:

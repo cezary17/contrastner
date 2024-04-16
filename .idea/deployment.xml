@@ -1,25 +1,46 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="kujathce@gruenau1.informatik.hu-berlin.de:22 agent" remoteFilesAllowedToDisappearOnAutoupload="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="kujathce@gruenau2.informatik.hu-berlin.de:22 agent" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
       <paths name="kujathce@gruenau1.informatik.hu-berlin.de:22 agent">
         <serverdata>
           <mappings>
-            <mapping deploy="/code/fewshot-ner-thesis" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/code/contrastner" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="kujathce@gruenau1.informatik.hu-berlin.de:22 agent (2)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/vol/fob-vol7/mi21/kujathce/code/contrastner" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="kujathce@gruenau2.informatik.hu-berlin.de:22 agent">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/vol/fob-vol7/mi21/kujathce/code/contrastner" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>
       <paths name="kujathce@gruenau7.informatik.hu-berlin.de:22 agent">
         <serverdata>
           <mappings>
-            <mapping deploy="/code/fewshot-ner-thesis" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/code/contrastner" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
       <paths name="kujathce@gruenau8.informatik.hu-berlin.de:22 agent">
         <serverdata>
           <mappings>
-            <mapping deploy="/code/fewshot-ner-thesis" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/code/contrastner" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="kujathce@gruenau8.informatik.hu-berlin.de:22 agent (2)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/vol/fob-vol7/mi21/kujathce/code/contrastner" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>

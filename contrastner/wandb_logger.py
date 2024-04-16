@@ -4,6 +4,9 @@ from typing import Any, Dict
 import pandas as pd
 import wandb
 from flair.trainers.plugins.base import TrainerPlugin
+from flair.trainers.plugins.metric_records import RecordType
+
+from contrastner.analysis.classification_plot import generate_classification_heatmap
 
 log = logging.getLogger("flair")
 
@@ -54,6 +57,8 @@ class WandbLogger(TrainerPlugin):
             log.addHandler(self.log_handler)
         else:
             self.log_handler = None
+        self.wandb.watch(self.trainer.model, log="all")
+
 
     @TrainerPlugin.hook("_training_exception", "after_teardown")
     def close_file_handler(self, **kw):
@@ -63,12 +68,17 @@ class WandbLogger(TrainerPlugin):
 
     @TrainerPlugin.hook
     def metric_recorded(self, record):
-        converted_record_name = str(record.name)
-        self.wandb.log({converted_record_name: record.value})
+        if record.is_scalar_list:
+            self.wandb.log({record.joined_name: str(record.value[0])})
+            if len(record.value) > 1:
+                log.warning(
+                    f"Only the first element of the scalar list {record.joined_name} is logged to wandb."
+                )
+        elif record.is_scalar:
+            self.wandb.log({record.joined_name: str(record.value)})
+        elif record.is_string:
+            self.wandb.log({record.joined_name: record.value})
 
-    @TrainerPlugin.hook
-    def _training_finally(self, **kw):
-        logging.info("_training_finally hook")
 
     @TrainerPlugin.hook
     def after_training(self, **kw):
@@ -79,10 +89,14 @@ class WandbLogger(TrainerPlugin):
 
         # log classification report as a wandb table
         try:
+            # As table
             classification_report = pd.DataFrame(results["test_results"].classification_report).reset_index().rename(
                 columns={"index": "metric"})
             classification_table = wandb.Table(dataframe=classification_report)
             self.wandb.log({"classification_report": classification_table})
+            # As heatmap
+            heatmap = generate_classification_heatmap(results["test_results"].classification_report)
+            wandb.log({"classification_heatmap": heatmap})
         except KeyError:
             log.info("No test_results available, skipping classification report")
 

@@ -73,31 +73,33 @@ def sweep_config(args: argparse.Namespace):
     log.info(f"Creating sweep with args: {args}")
     return {
         "method": "random",
-        "metric": {"goal": "maximize", "name": "dev/macro avg/f1-score"},
+        "metric": {"goal": "maximize", "name": "test_score"},
         "parameters": {
             "run_type": {
                 "values": ["contrastive", "baseline"]
             },
+            "seed": {
+                "distribution": "int_uniform",
+                "min": 0,
+                "max": 100
+            },
             "max_epochs": {
-                "value": [50]
-            },
-            "learning_rate": {
-                "values": [1e-4, 5e-5, 1e-5]
-            },
-            "batch_size": {
-                "value": args.batch_size
-            },
-            "dataset": {
-                "value": args.dataset
+                "value": 50
             },
             "k_shot_num": {
-                "value": args.k_shot_num
+                "value": 8
+            },
+            "learning_rate": {
+                "value": 1e-4
+            },
+            "batch_size": {
+                "value": 16
             },
             "filtering_cutoff": {
                 "value": args.filtering_cutoff
             },
-            "seed": {
-                "values": [0, 1, 2]
+            "dataset": {
+                "value": args.dataset
             },
             "transformer_model": {
                 "value": args.transformer_model

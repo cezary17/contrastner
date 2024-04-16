@@ -15,8 +15,8 @@ dependencies:
   - pytorch
   - transformers
   - datasets
-  - pytorch-cuda=12.1
   - plotly=5.20.0
+  # - pytorch-cuda=12.1
   - pip
   - pip:
     - flair
