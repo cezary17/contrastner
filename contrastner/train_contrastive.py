@@ -1,4 +1,7 @@
+import random
+
 import flair
+import numpy as np
 import wandb
 from flair.embeddings import TransformerWordEmbeddings
 
@@ -13,6 +16,8 @@ from contrastner.analysis.sentence_logger import log_selected_sentences
 
 def contrastive_training_loop():
     flair.set_seed(wandb.config.seed)
+    np.random.seed(wandb.config.seed)
+    random.seed(wandb.config.seed)
 
     corpus = select_corpus(wandb.config.dataset)
 
@@ -50,7 +55,8 @@ def contrastive_training_loop():
         label_type="ner",
         span_encoding=wandb.config.tag_type,
         contrast_filtering_method=contrast_filtering_method,
-        neg_o_prob=wandb.config.neg_o_prob
+        neg_o_prob=wandb.config.neg_o_prob,
+        loss_function=wandb.config.loss_function
     )
 
     trainer = ModelTrainer(model, corpus)

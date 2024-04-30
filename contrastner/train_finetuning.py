@@ -1,8 +1,10 @@
 from pathlib import Path
+import random
 
 import flair
 import wandb
 from flair.models import TokenClassifier
+import numpy as np
 
 from contrastner.dataset import KShotCounter
 from contrastner.trainers import ModelTrainer
@@ -12,6 +14,8 @@ from contrastner.wandb_logger import WandbLogger
 
 def finetuning_training_loop():
     flair.set_seed(wandb.config.seed)
+    np.random.seed(wandb.config.seed)
+    random.seed(wandb.config.seed)
 
     corpus = select_corpus(wandb.config.dataset)
 

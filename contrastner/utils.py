@@ -40,6 +40,7 @@ def parse_training_arguments():
     parser.add_argument("--contrast_filtering_method", type=str, default="no-o")
     parser.add_argument("--shuffle_dataset", action="store_true", default=True)
     parser.add_argument("--neg_o_prob", type=float, default=0.2)
+    parser.add_argument("--loss_function", type=str, default="TripletMarginLoss")
     # hyperparameters
     parser.add_argument("--max_epochs", type=int, default=1)
     parser.add_argument("--learning_rate", type=float, default=3e-5)
@@ -63,6 +64,7 @@ def init_wandb_logger(args: argparse.Namespace, **kwargs):
             "filtering_cutoff": args.filtering_cutoff,
             "shuffle_dataset": args.shuffle_dataset,
             "neg_o_prob": args.neg_o_prob,
+            "loss_function": args.loss_function,
 
             # hyperparameters
             "learning_rate": args.learning_rate,
@@ -80,12 +82,21 @@ def sweep_config(args: argparse.Namespace):
         "metric": {"goal": "maximize", "name": "test_score"},
         "parameters": {
             "run_type": {
-                "values": ["contrastive", "baseline"]
+                "value": "contrastive"
+            },
+            "neg_o_prob": {
+                "value": 0.0
             },
             "seed": {
                 "distribution": "int_uniform",
                 "min": 0,
                 "max": 100
+            },
+            "contrast_filtering_method": {
+                "value": "no-o"
+            },
+            "loss_function": {
+                "values": ["tml", "cel"]
             },
             "max_epochs": {
                 "value": 50
@@ -97,7 +108,7 @@ def sweep_config(args: argparse.Namespace):
                 "value": 1e-4
             },
             "batch_size": {
-                "value": 16
+                "value": 32
             },
             "filtering_cutoff": {
                 "value": args.filtering_cutoff
@@ -117,12 +128,6 @@ def sweep_config(args: argparse.Namespace):
             "filtering_method": {
                 "value": args.filtering_method
             },
-            "contrast_filtering_method": {
-                "value": args.contrast_filtering_method
-            },
-            "neg_o_prob": {
-                "value": args.neg_o_prob
-            }
         }
     }
 

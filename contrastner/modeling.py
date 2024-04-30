@@ -11,7 +11,7 @@ import wandb
 from flair.data import Dictionary, DT, Token, Label
 from flair.embeddings import TokenEmbeddings
 from flair.models import TokenClassifier
-from torch.nn import TripletMarginLoss
+from torch.nn import TripletMarginLoss, CosineEmbeddingLoss
 
 log = logging.getLogger("flair")
 log.setLevel("DEBUG")
@@ -25,7 +25,7 @@ Dict of
         ...
 """
 LABEL_TENSOR_DICT = Dict[str, List[Tuple[Tuple[int, int, str], torch.Tensor]]]
-TRIPLET = Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]
+TRIPLET = Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
 
 
 class FilterMethod(Enum):
@@ -49,6 +49,7 @@ class SFTokenClassifier(TokenClassifier):
             span_encoding: str = "BIOES",
             contrast_filtering_method: str = "no-o",
             neg_o_prob: float = 0.2,
+            loss_function: str = "TripletMarginLoss",
             **classifierargs, ) -> None:
 
         super().__init__(
@@ -59,7 +60,16 @@ class SFTokenClassifier(TokenClassifier):
             **classifierargs
         )
 
-        self.loss_function = TripletMarginLoss()
+        loss_function = loss_function.strip().lower()
+        if loss_function == "tripletmarginloss" or loss_function == "tml":
+            self.loss_function = TripletMarginLoss()
+            self.loss_used = "tml"
+        elif loss_function == "cosineembeddingloss" or loss_function == "cel":
+            self.loss_function = CosineEmbeddingLoss()
+            self.loss_used = "cel"
+        else:
+            raise NotImplementedError(f"Loss function {loss_function} is not implemented")
+
         self.label_list = self.label_dictionary.get_items() + ["O"]
         self._internal_batch_counter = 0
         self.bio_label_list = self._make_bio_label_list()
@@ -99,17 +109,19 @@ class SFTokenClassifier(TokenClassifier):
         # pass data points through network to get encoded data point tensor
         self.embeddings.embed(sentences)
 
+        log.debug(f"Making label tensor dict")
         labels_dict = self._make_label_tensor_dict(sentences)
 
-        # Apply filters
+        log.debug(f"Filtering labels dict")
         filtered_labels_dict = self._filter_labels_dict(labels_dict, self.filter_method)
 
-        triplets = self._make_entity_triplets(filtered_labels_dict)
+        log.debug(f"Making entity triplets")
+        final_loss_tensors = self._make_entity_triplets(filtered_labels_dict)
 
         self._internal_batch_counter += 1
 
         # calculate the loss
-        return self.loss_function(*triplets), label_tensor.size(0)
+        return self.loss_function(*final_loss_tensors), label_tensor.size(0)
 
     def _cut_label_prefix(self, label: Label) -> str:
         """
@@ -172,6 +184,8 @@ class SFTokenClassifier(TokenClassifier):
         if isinstance(method, str):
             method = FilterMethod(method)
 
+        log.debug(f"Filtering labels with method {method}")
+
         match method:
             case FilterMethod.NONE:
                 return labels_dict
@@ -212,6 +226,7 @@ class SFTokenClassifier(TokenClassifier):
         :return: List of triplets [(anchor, (positive, negative)), ...]
         """
 
+        log.debug(f"Making triplets for labels: {labels_dict.keys()}")
         assert len(labels_dict) > 0, "No labels found in labels_dict"
 
         triplets = []
@@ -222,17 +237,23 @@ class SFTokenClassifier(TokenClassifier):
         if self.filter_method == FilterMethod.NO_O and "O" in relevant_labels:
             relevant_labels.remove("O")
 
+        log.debug(f"Relevant labels: {relevant_labels}")
+
         for entity, tensor_list in labels_dict.items():
             # skip if we have no different positive for that label
             if len(tensor_list) < 2:
+                log.debug(f"Skipping label {entity} with less than 2 entries")
                 continue
 
             if self.filter_method == FilterMethod.O_ONLY_NEG and entity == "O":
+                log.debug(f"Skipping O label for O-only-neg filtering")
                 continue
 
             for current_anchor_idx, current_anchor_tup in enumerate(tensor_list):
                 anchor_label = entity
                 anchor_tensor = current_anchor_tup[1]
+
+                log.debug(f"Making triplets for label {anchor_label}")
 
                 self._label_statistics["anchors"][anchor_label] += 1
 
@@ -241,6 +262,7 @@ class SFTokenClassifier(TokenClassifier):
 
                 if contrast_with_o:
                     possible_neg_labels = ["O"]
+                    log.debug(f"Contrasting with O")
 
                 else:
                     possible_neg_labels = [
@@ -249,12 +271,13 @@ class SFTokenClassifier(TokenClassifier):
                             len(labels_dict[label]) > 0 and
                             label != "O"
                     )]
+                    log.debug(f"Contrasting with {possible_neg_labels}")
 
-                # problem with 1 label having a lot of entries and the rest having 0 -> no negative
                 # should be fixed by filtering the dataset now but can never be too safe
                 assert len(possible_neg_labels) > 0
 
                 negative_label = choice(possible_neg_labels)
+                log.debug(f"Chose negative label {negative_label}")
 
                 self._label_statistics["negatives"][negative_label] += 1
 
@@ -264,18 +287,42 @@ class SFTokenClassifier(TokenClassifier):
                 available_positives = tensor_list[:current_anchor_idx] + tensor_list[current_anchor_idx + 1:]
                 positive_tensor = choice(available_positives)[1]
 
-                triplets.append((anchor_tensor, positive_tensor, negative_tensor))
+                triplets.extend(self._make_loss_triplets(anchor_tensor, positive_tensor, negative_tensor))
 
+        log.debug(f"Building full tensors for {len(triplets)} triplets")
         try:
-            full_anchor_tensor = torch.stack([triplet[0] for triplet in triplets])
-            full_positive_tensor = torch.stack([triplet[1] for triplet in triplets])
-            full_negative_tensor = torch.stack([triplet[2] for triplet in triplets])
+            first_tensor, second_tensor, third_tensor = self._make_torch_stack(triplets)
+            a = 1
         except RuntimeError as e:
             log.error(f"Seed {wandb.config.seed} triplet building not possible")
             log.error(f"Error in making triplets: {e}")
             raise e
 
-        return full_anchor_tensor, full_positive_tensor, full_negative_tensor
+        return first_tensor, second_tensor, third_tensor
+
+    def _make_loss_triplets(self, anchor: torch.Tensor, positive: torch.Tensor, negative: torch.Tensor) -> List[TRIPLET]:
+        if self.loss_used == "tml":
+            return [(anchor, positive, negative)]
+        elif self.loss_used == "cel":
+            return [(anchor, positive, torch.ones(1, device=flair.device)), (anchor, negative, -torch.ones(1, device=flair.device))]
+        else:
+            raise NotImplementedError(f"Handling {self.loss_function} is not implemented")
+
+    def _make_torch_stack(self, triplets: List[TRIPLET]) -> TRIPLET:
+        if self.loss_used == "tml":
+            first_tensor = torch.stack([triplet[0] for triplet in triplets])
+            second_tensor = torch.stack([triplet[1] for triplet in triplets])
+            third_tensor = torch.stack([triplet[2] for triplet in triplets])
+
+            return first_tensor, second_tensor, third_tensor
+        elif self.loss_used == "cel":
+            first_tensor = torch.stack([triplet[0] for triplet in triplets])
+            second_tensor = torch.stack([triplet[1] for triplet in triplets])
+            third_tensor = torch.cat([triplet[2] for triplet in triplets])
+
+            return first_tensor, second_tensor, third_tensor
+        else:
+            raise NotImplementedError(f"Handling {self.loss_function} is not implemented")
 
     def _make_bio_label_list(self):
         bio_labels = []
