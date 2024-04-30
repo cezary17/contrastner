@@ -22,7 +22,7 @@ def contrastive_training_loop():
         simple_cutoff=wandb.config.filtering_cutoff,
         remove_dev=True,
         remove_test=True,
-        shuffle=True,
+        shuffle=wandb.config.shuffle_dataset,
         shuffle_seed=wandb.config.seed
     )
 
@@ -49,7 +49,8 @@ def contrastive_training_loop():
         label_dictionary=label_dictionary,
         label_type="ner",
         span_encoding=wandb.config.tag_type,
-        contrast_filtering_method=contrast_filtering_method
+        contrast_filtering_method=contrast_filtering_method,
+        neg_o_prob=wandb.config.neg_o_prob
     )
 
     trainer = ModelTrainer(model, corpus)

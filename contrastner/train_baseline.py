@@ -20,7 +20,7 @@ def baseline_train_loop():
         mode=wandb.config.filtering_method,
         simple_cutoff=wandb.config.filtering_cutoff,
         remove_dev=True,
-        shuffle=True,
+        shuffle=wandb.config.shuffle_dataset,
         shuffle_seed=wandb.config.seed
     )
 

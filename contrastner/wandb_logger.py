@@ -100,6 +100,31 @@ class WandbLogger(TrainerPlugin):
         except KeyError:
             log.info("No test_results available, skipping classification report")
 
+        try:
+            # log contrast label statistics
+            contrast_label_statistics = self.model.label_statistics
+            anchor_label_statistics = contrast_label_statistics["anchors"]
+            negative_label_statistics = contrast_label_statistics["negatives"]
+
+            labels = list(negative_label_statistics.keys()) # use this to include O label
+
+            # add combined statistics
+            labels.append("combined_no_o")
+            anchor_label_statistics["combined_no_o"] = sum([v for k, v in anchor_label_statistics.items() if k != "O"])
+            negative_label_statistics["combined_no_o"] = sum([v for k, v in negative_label_statistics.items() if k != "O"])
+
+            df = pd.DataFrame({
+                "label": labels,
+                "anchor_count": [anchor_label_statistics[label] for label in labels],
+                "negative_count": [negative_label_statistics[label] for label in labels]
+            })
+
+            label_statistics_table = wandb.Table(dataframe=df)
+            self.wandb.log({"contrast_label_statistics": label_statistics_table})
+
+        except AttributeError:
+            log.info("No contrast_label_statistics available, skipping contrast label statistics")
+
     def get_state(self) -> Dict[str, Any]:
         return {
             **super().get_state(),

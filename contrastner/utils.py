@@ -38,6 +38,8 @@ def parse_training_arguments():
     parser.add_argument("--filtering_cutoff", type=int, default=1)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--contrast_filtering_method", type=str, default="no-o")
+    parser.add_argument("--shuffle_dataset", action="store_true", default=True)
+    parser.add_argument("--neg_o_prob", type=float, default=0.2)
     # hyperparameters
     parser.add_argument("--max_epochs", type=int, default=1)
     parser.add_argument("--learning_rate", type=float, default=3e-5)
@@ -59,6 +61,8 @@ def init_wandb_logger(args: argparse.Namespace, **kwargs):
             "seed": args.seed,
             "contrast_filtering_method": args.contrast_filtering_method,
             "filtering_cutoff": args.filtering_cutoff,
+            "shuffle_dataset": args.shuffle_dataset,
+            "neg_o_prob": args.neg_o_prob,
 
             # hyperparameters
             "learning_rate": args.learning_rate,
@@ -72,14 +76,16 @@ def init_wandb_logger(args: argparse.Namespace, **kwargs):
 def sweep_config(args: argparse.Namespace):
     log.info(f"Creating sweep with args: {args}")
     return {
-        "method": "grid",
+        "method": "random",
         "metric": {"goal": "maximize", "name": "test_score"},
         "parameters": {
             "run_type": {
                 "values": ["contrastive", "baseline"]
             },
             "seed": {
-                "values": [37, 40, 57, 60, 92]
+                "distribution": "int_uniform",
+                "min": 0,
+                "max": 100
             },
             "max_epochs": {
                 "value": 50
@@ -96,6 +102,9 @@ def sweep_config(args: argparse.Namespace):
             "filtering_cutoff": {
                 "value": args.filtering_cutoff
             },
+            "shuffle_dataset": {
+                "value": args.shuffle_dataset
+            },
             "dataset": {
                 "value": args.dataset
             },
@@ -110,6 +119,9 @@ def sweep_config(args: argparse.Namespace):
             },
             "contrast_filtering_method": {
                 "value": args.contrast_filtering_method
+            },
+            "neg_o_prob": {
+                "value": args.neg_o_prob
             }
         }
     }

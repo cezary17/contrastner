@@ -1,17 +1,20 @@
 import logging
+import random
+from collections import defaultdict
 from enum import Enum
 from random import choice
 from typing import List, Tuple, Dict
 
 import flair
 import torch
+import wandb
 from flair.data import Dictionary, DT, Token, Label
 from flair.embeddings import TokenEmbeddings
 from flair.models import TokenClassifier
 from torch.nn import TripletMarginLoss
 
-logger = logging.getLogger("flair")
-logger.setLevel("DEBUG")
+log = logging.getLogger("flair")
+log.setLevel("DEBUG")
 
 flair.device = torch.device("cuda:1")
 
@@ -29,6 +32,7 @@ class FilterMethod(Enum):
     LESS_2 = "less-2"
     NONE = "none"
     NO_O = "no-o"
+    O_ONLY_NEG = "o-only-neg"
 
 
 class FilterNotImplementedError(Exception):
@@ -44,6 +48,7 @@ class SFTokenClassifier(TokenClassifier):
             label_type: str,
             span_encoding: str = "BIOES",
             contrast_filtering_method: str = "no-o",
+            neg_o_prob: float = 0.2,
             **classifierargs, ) -> None:
 
         super().__init__(
@@ -59,6 +64,22 @@ class SFTokenClassifier(TokenClassifier):
         self._internal_batch_counter = 0
         self.bio_label_list = self._make_bio_label_list()
         self.filter_method = FilterMethod(contrast_filtering_method)
+
+        if self.filter_method == FilterMethod.NO_O:
+            # force _make_entity_triplets to not contrast with O-labels
+            self.chance_o_contrast = -1.0
+        else:
+            self.chance_o_contrast = neg_o_prob
+
+        self._label_statistics = {
+            "anchors": defaultdict(int),
+            "negatives": defaultdict(int)
+        }
+
+
+    @property
+    def label_statistics(self) -> Dict[str, Dict[str, int]]:
+        return self._label_statistics
 
     def forward_loss(self, sentences: List[DT]) -> Tuple[torch.Tensor, int]:
         # make a forward pass to produce embedded data points and labels
@@ -81,7 +102,7 @@ class SFTokenClassifier(TokenClassifier):
         labels_dict = self._make_label_tensor_dict(sentences)
 
         # Apply filters
-        filtered_labels_dict = self._filter_labels_dict(labels_dict, FilterMethod.NO_O)
+        filtered_labels_dict = self._filter_labels_dict(labels_dict, self.filter_method)
 
         triplets = self._make_entity_triplets(filtered_labels_dict)
 
@@ -158,6 +179,8 @@ class SFTokenClassifier(TokenClassifier):
                 return self._no_o_filter(labels_dict)
             case FilterMethod.LESS_2:
                 return self._less_2_filter(labels_dict)
+            case FilterMethod.O_ONLY_NEG:
+                return labels_dict
             case _:
                 raise FilterNotImplementedError(f"Method {method.value} is not known.")
 
@@ -196,19 +219,36 @@ class SFTokenClassifier(TokenClassifier):
         # here for the case we throw O-labels out or similar
         relevant_labels = [label for label in self.bio_label_list if label in labels_dict.keys()]
 
+        if self.filter_method == FilterMethod.NO_O and "O" in relevant_labels:
+            relevant_labels.remove("O")
+
         for entity, tensor_list in labels_dict.items():
             # skip if we have no different positive for that label
             if len(tensor_list) < 2:
+                continue
+
+            if self.filter_method == FilterMethod.O_ONLY_NEG and entity == "O":
                 continue
 
             for current_anchor_idx, current_anchor_tup in enumerate(tensor_list):
                 anchor_label = entity
                 anchor_tensor = current_anchor_tup[1]
 
-                # any entity not sharing the same label
+                self._label_statistics["anchors"][anchor_label] += 1
 
-                possible_neg_labels = [label for label in relevant_labels if
-                                       (label != anchor_label and len(labels_dict[label]) > 0)]
+                # contrast with O-labels or other labels
+                contrast_with_o = random.random() < self.chance_o_contrast
+
+                if contrast_with_o:
+                    possible_neg_labels = ["O"]
+
+                else:
+                    possible_neg_labels = [
+                        label for label in relevant_labels if (
+                            label != anchor_label and
+                            len(labels_dict[label]) > 0 and
+                            label != "O"
+                    )]
 
                 # problem with 1 label having a lot of entries and the rest having 0 -> no negative
                 # should be fixed by filtering the dataset now but can never be too safe
@@ -216,18 +256,24 @@ class SFTokenClassifier(TokenClassifier):
 
                 negative_label = choice(possible_neg_labels)
 
+                self._label_statistics["negatives"][negative_label] += 1
+
                 negative_tensor = choice(labels_dict[negative_label])[1]
 
                 # any entity sharing label with anchor without same index
-
                 available_positives = tensor_list[:current_anchor_idx] + tensor_list[current_anchor_idx + 1:]
                 positive_tensor = choice(available_positives)[1]
 
                 triplets.append((anchor_tensor, positive_tensor, negative_tensor))
 
-        full_anchor_tensor = torch.stack([triplet[0] for triplet in triplets])
-        full_positive_tensor = torch.stack([triplet[1] for triplet in triplets])
-        full_negative_tensor = torch.stack([triplet[2] for triplet in triplets])
+        try:
+            full_anchor_tensor = torch.stack([triplet[0] for triplet in triplets])
+            full_positive_tensor = torch.stack([triplet[1] for triplet in triplets])
+            full_negative_tensor = torch.stack([triplet[2] for triplet in triplets])
+        except RuntimeError as e:
+            log.error(f"Seed {wandb.config.seed} triplet building not possible")
+            log.error(f"Error in making triplets: {e}")
+            raise e
 
         return full_anchor_tensor, full_positive_tensor, full_negative_tensor
 
@@ -240,3 +286,4 @@ class SFTokenClassifier(TokenClassifier):
                 bio_labels.append(label)
 
         return list(set(bio_labels))
+
