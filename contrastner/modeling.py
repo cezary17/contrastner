@@ -223,7 +223,7 @@ class SFTokenClassifier(TokenClassifier):
 
         We iterate over the labels and make triplets for every entity we found
         :param: labels_dict: Output from _make_label_token_dict
-        :return: List of triplets [(anchor, (positive, negative)), ...]
+        :return: List of triplets, format dependent on the loss function chosen
         """
 
         log.debug(f"Making triplets for labels: {labels_dict.keys()}")

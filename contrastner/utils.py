@@ -96,7 +96,7 @@ def sweep_config(args: argparse.Namespace):
                 "value": "no-o"
             },
             "loss_function": {
-                "values": ["tml", "cel"]
+                "value": "tml"
             },
             "max_epochs": {
                 "value": 50
@@ -120,7 +120,7 @@ def sweep_config(args: argparse.Namespace):
                 "value": args.dataset
             },
             "transformer_model": {
-                "value": args.transformer_model
+                "values": ["bert-base-uncased", "xlm-roberta-base", "bert-base-cased"]
             },
             "tag_type": {
                 "value": args.tag_type
