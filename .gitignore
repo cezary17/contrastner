@@ -315,3 +315,4 @@ fabric.properties
 model_output/
 
 .DS_Store
+micromamba/
