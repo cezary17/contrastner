@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "contrastner"
+version = "0.0.1"
+description = "Python package for thesis"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {file = "LICENSE"}
+
+authors = [
+  {name = "Cezary Kujath", email = "cezary.kujath@hu-berlin.de" }
+]
+maintainers = [
+  {name = "Cezary Kujath", email = "cezary.kujath@hu-berlin.de" }
+]
+
+[tool.setuptools]
+packages = ["contrastner"]

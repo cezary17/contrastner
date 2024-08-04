@@ -50,6 +50,7 @@ class SFTokenClassifier(TokenClassifier):
             contrast_filtering_method: str = "no-o",
             neg_o_prob: float = 0.2,
             loss_function: str = "TripletMarginLoss",
+            format_o_tokens: bool = True,
             **classifierargs, ) -> None:
 
         super().__init__(
@@ -74,6 +75,7 @@ class SFTokenClassifier(TokenClassifier):
         self._internal_batch_counter = 0
         self.bio_label_list = self._make_bio_label_list()
         self.filter_method = FilterMethod(contrast_filtering_method)
+        self.format_o_tokens = format_o_tokens
 
         if self.filter_method == FilterMethod.NO_O:
             # force _make_entity_triplets to not contrast with O-labels
@@ -85,6 +87,8 @@ class SFTokenClassifier(TokenClassifier):
             "anchors": defaultdict(int),
             "negatives": defaultdict(int)
         }
+
+
 
 
     @property
@@ -134,7 +138,7 @@ class SFTokenClassifier(TokenClassifier):
 
         # labels have to start with "S" or "I" followed by "-" followed by the label itself
         if label_val != "O":
-            label_val = label_val.split("-")[-1]
+            label_val = label_val.split("-", maxsplit=1)[-1]
 
         # sanity check for development
         assert label_val in self.bio_label_list

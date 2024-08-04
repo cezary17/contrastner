@@ -5,13 +5,12 @@ import numpy as np
 import wandb
 from flair.embeddings import TransformerWordEmbeddings
 
+from contrastner.analysis.sentence_logger import log_selected_sentences
 from contrastner.dataset import KShotCounter
 from contrastner.modeling import SFTokenClassifier
 from contrastner.trainers import ModelTrainer
 from contrastner.utils import select_corpus, parse_training_arguments, init_wandb_logger, GLOBAL_PATHS
 from contrastner.wandb_logger import WandbLogger
-
-from contrastner.analysis.sentence_logger import log_selected_sentences
 
 
 def contrastive_training_loop():
@@ -56,7 +55,8 @@ def contrastive_training_loop():
         span_encoding=wandb.config.tag_type,
         contrast_filtering_method=contrast_filtering_method,
         neg_o_prob=wandb.config.neg_o_prob,
-        loss_function=wandb.config.loss_function
+        loss_function=wandb.config.loss_function,
+        format_o_tokens=False if wandb.config.dataset == "WNUT17" else True
     )
 
     trainer = ModelTrainer(model, corpus)

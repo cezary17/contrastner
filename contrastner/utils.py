@@ -85,7 +85,7 @@ def sweep_config(args: argparse.Namespace):
                 "value": "contrastive"
             },
             "neg_o_prob": {
-                "value": 0.0
+                "value": 0.2
             },
             "seed": {
                 "distribution": "int_uniform",
@@ -117,10 +117,10 @@ def sweep_config(args: argparse.Namespace):
                 "value": args.shuffle_dataset
             },
             "dataset": {
-                "value": args.dataset
+                "values": ["CONLL03", "WNUT17", "NER_ENGLISH_RESTAURANT"]
             },
             "transformer_model": {
-                "values": ["bert-base-uncased", "xlm-roberta-base", "bert-base-cased"]
+                "value": args.transformer_model
             },
             "tag_type": {
                 "value": args.tag_type
