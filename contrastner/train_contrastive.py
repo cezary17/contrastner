@@ -14,9 +14,10 @@ from contrastner.wandb_logger import WandbLogger
 
 
 def contrastive_training_loop():
-    flair.set_seed(wandb.config.seed)
-    np.random.seed(wandb.config.seed)
-    random.seed(wandb.config.seed)
+    SEED = random.randint(0, 1000)
+    flair.set_seed(SEED)
+    np.random.seed(SEED)
+    random.seed(SEED)
 
     corpus = select_corpus(wandb.config.dataset)
 
@@ -27,7 +28,7 @@ def contrastive_training_loop():
         remove_dev=True,
         remove_test=True,
         shuffle=wandb.config.shuffle_dataset,
-        shuffle_seed=wandb.config.seed
+        shuffle_seed=SEED
     )
 
     k_shot_counter(corpus)
@@ -56,7 +57,6 @@ def contrastive_training_loop():
         contrast_filtering_method=contrast_filtering_method,
         neg_o_prob=wandb.config.neg_o_prob,
         loss_function=wandb.config.loss_function,
-        format_o_tokens=False if wandb.config.dataset == "WNUT17" else True
     )
 
     trainer = ModelTrainer(model, corpus)
@@ -74,6 +74,5 @@ def contrastive_training_loop():
 if __name__ == "__main__":
     args = parse_training_arguments()
     init_wandb_logger(args, workflow="contrastive_only")
-    flair.set_seed(wandb.config.seed)
 
     contrastive_training_loop()

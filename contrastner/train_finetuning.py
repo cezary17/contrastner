@@ -13,9 +13,10 @@ from contrastner.wandb_logger import WandbLogger
 
 
 def finetuning_training_loop():
-    flair.set_seed(wandb.config.seed)
-    np.random.seed(wandb.config.seed)
-    random.seed(wandb.config.seed)
+    SEED = random.randint(0, 1000)
+    flair.set_seed(SEED)
+    np.random.seed(SEED)
+    random.seed(SEED)
 
     corpus = select_corpus(wandb.config.dataset)
 
@@ -25,7 +26,7 @@ def finetuning_training_loop():
         simple_cutoff=wandb.config.filtering_cutoff,
         remove_dev=True,
         shuffle=wandb.config.shuffle_dataset,
-        shuffle_seed=wandb.config.seed
+        shuffle_seed=SEED
     )
 
     k_shot_counter(corpus)

@@ -1,9 +1,11 @@
 import argparse
 import logging
+import random
 from enum import Enum
 
 import flair
 import wandb
+import numpy as np
 from flair.datasets import CONLL_03, WNUT_17, FEWNERD, ONTONOTES, NER_ENGLISH_MOVIE_SIMPLE, NER_ENGLISH_RESTAURANT
 
 log = logging.getLogger("flair")
@@ -34,7 +36,7 @@ def parse_training_arguments():
     parser.add_argument("--transformer_model", type=str, default="bert-base-uncased")
     parser.add_argument("--tag_type", type=str, default="BIO")
     parser.add_argument("--filtering_method", type=str, default="simple")  # contrastive, simple
-    parser.add_argument("--k_shot_num", type=int, default=5)
+    parser.add_argument("--k_shot_num", type=int, default=8)
     parser.add_argument("--filtering_cutoff", type=int, default=1)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--contrast_filtering_method", type=str, default="no-o")
@@ -42,9 +44,9 @@ def parse_training_arguments():
     parser.add_argument("--neg_o_prob", type=float, default=0.2)
     parser.add_argument("--loss_function", type=str, default="TripletMarginLoss")
     # hyperparameters
-    parser.add_argument("--max_epochs", type=int, default=1)
-    parser.add_argument("--learning_rate", type=float, default=3e-5)
-    parser.add_argument("--batch_size", type=int, default=4)
+    parser.add_argument("--max_epochs", type=int, default=50)
+    parser.add_argument("--learning_rate", type=float, default=1e-4)
+    parser.add_argument("--batch_size", type=int, default=32)
 
     return parser.parse_args()
 
@@ -78,19 +80,17 @@ def init_wandb_logger(args: argparse.Namespace, **kwargs):
 def sweep_config(args: argparse.Namespace):
     log.info(f"Creating sweep with args: {args}")
     return {
-        "method": "random",
+        "method": "grid",
         "metric": {"goal": "maximize", "name": "test_score"},
         "parameters": {
+            "dummy": {
+                "values": np.arange(0, 20).tolist()
+            },
             "run_type": {
                 "value": "contrastive"
             },
             "neg_o_prob": {
-                "value": 0.2
-            },
-            "seed": {
-                "distribution": "int_uniform",
-                "min": 0,
-                "max": 100
+                "value": 0.0
             },
             "contrast_filtering_method": {
                 "value": "no-o"
@@ -108,7 +108,7 @@ def sweep_config(args: argparse.Namespace):
                 "value": 1e-4
             },
             "batch_size": {
-                "value": 32
+                "value": 64
             },
             "filtering_cutoff": {
                 "value": args.filtering_cutoff
@@ -117,10 +117,10 @@ def sweep_config(args: argparse.Namespace):
                 "value": args.shuffle_dataset
             },
             "dataset": {
-                "values": ["CONLL03", "WNUT17", "NER_ENGLISH_RESTAURANT"]
+                "values": "CONLL03"
             },
             "transformer_model": {
-                "value": args.transformer_model
+                "values": ["bert-base-uncased", "bert-base-cased"]
             },
             "tag_type": {
                 "value": args.tag_type

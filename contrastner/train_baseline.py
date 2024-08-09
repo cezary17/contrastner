@@ -1,4 +1,7 @@
+import random
+
 import flair
+import numpy as np
 import wandb
 from flair.embeddings import TransformerWordEmbeddings
 from flair.models import TokenClassifier
@@ -10,7 +13,10 @@ from contrastner.trainers import ModelTrainer
 
 
 def baseline_train_loop():
-    flair.set_seed(wandb.config.seed)
+    SEED = random.randint(0, 1000)
+    flair.set_seed(SEED)
+    np.random.seed(SEED)
+    random.seed(SEED)
 
     corpus = select_corpus(wandb.config.dataset)
     label_dictionary = corpus.make_label_dictionary(label_type="ner")
@@ -21,7 +27,7 @@ def baseline_train_loop():
         simple_cutoff=wandb.config.filtering_cutoff,
         remove_dev=True,
         shuffle=wandb.config.shuffle_dataset,
-        shuffle_seed=wandb.config.seed
+        shuffle_seed=SEED
     )
 
     k_shot_counter(corpus)
@@ -59,6 +65,5 @@ def baseline_train_loop():
 if __name__ == "__main__":
     args = parse_training_arguments()
     init_wandb_logger(args, workflow="baseline")
-    flair.set_seed(wandb.config.seed)
 
     baseline_train_loop()

@@ -50,7 +50,6 @@ class SFTokenClassifier(TokenClassifier):
             contrast_filtering_method: str = "no-o",
             neg_o_prob: float = 0.2,
             loss_function: str = "TripletMarginLoss",
-            format_o_tokens: bool = True,
             **classifierargs, ) -> None:
 
         super().__init__(
@@ -75,7 +74,6 @@ class SFTokenClassifier(TokenClassifier):
         self._internal_batch_counter = 0
         self.bio_label_list = self._make_bio_label_list()
         self.filter_method = FilterMethod(contrast_filtering_method)
-        self.format_o_tokens = format_o_tokens
 
         if self.filter_method == FilterMethod.NO_O:
             # force _make_entity_triplets to not contrast with O-labels
@@ -298,7 +296,8 @@ class SFTokenClassifier(TokenClassifier):
             first_tensor, second_tensor, third_tensor = self._make_torch_stack(triplets)
             a = 1
         except RuntimeError as e:
-            log.error(f"Seed {wandb.config.seed} triplet building not possible")
+            log.error("label_dict in error:")
+            log.error([f"{key}: {len(value)}" for key, value in labels_dict.items()])
             log.error(f"Error in making triplets: {e}")
             raise e
 

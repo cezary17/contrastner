@@ -4,7 +4,6 @@ from typing import Any, Dict
 import pandas as pd
 import wandb
 from flair.trainers.plugins.base import TrainerPlugin
-from flair.trainers.plugins.metric_records import RecordType
 
 from contrastner.analysis.classification_plot import generate_classification_heatmap
 
@@ -48,6 +47,7 @@ class WandbLogger(TrainerPlugin):
 
     @TrainerPlugin.hook
     def after_setup(self, **kw):
+        # a = 1
         if self.emit_alerts:
             self.log_handler = WandbLoggingHandler(self.wandb)
             self.log_handler.setLevel(self.alert_level)
@@ -59,6 +59,10 @@ class WandbLogger(TrainerPlugin):
             self.log_handler = None
         self.wandb.watch(self.trainer.model, log="all")
 
+        metrics = ['micro_avg_f1-score', 'micro_avg_precision', 'micro_avg_recall', 'macro_avg_f1-score',
+                   'macro_avg_precision', 'macro_avg_recall', 'accuracy', 'loss']
+        for metric in metrics:
+            self.wandb.define_metric(metric, summary="last")
 
     @TrainerPlugin.hook("_training_exception", "after_teardown")
     def close_file_handler(self, **kw):
@@ -79,7 +83,6 @@ class WandbLogger(TrainerPlugin):
         elif record.is_string:
             self.wandb.log({record.joined_name: record.value})
 
-
     @TrainerPlugin.hook
     def after_training(self, **kw):
         results = self.trainer.return_values
@@ -97,6 +100,9 @@ class WandbLogger(TrainerPlugin):
             # As heatmap
             heatmap_image = generate_classification_heatmap(results["test_results"].classification_report)
             self.wandb.log({"classification_heatmap": wandb.Image(heatmap_image)})
+
+            metric_logs = {self.format_output_key(key): val for key, val in results["test_results"].scores.items()}
+            self.wandb.log(metric_logs)
         except KeyError:
             log.info("No test_results available, skipping classification report")
 
@@ -106,12 +112,13 @@ class WandbLogger(TrainerPlugin):
             anchor_label_statistics = contrast_label_statistics["anchors"]
             negative_label_statistics = contrast_label_statistics["negatives"]
 
-            labels = list(negative_label_statistics.keys()) # use this to include O label
+            labels = list(negative_label_statistics.keys())  # use this to include O label
 
             # add combined statistics
             labels.append("combined_no_o")
             anchor_label_statistics["combined_no_o"] = sum([v for k, v in anchor_label_statistics.items() if k != "O"])
-            negative_label_statistics["combined_no_o"] = sum([v for k, v in negative_label_statistics.items() if k != "O"])
+            negative_label_statistics["combined_no_o"] = sum(
+                [v for k, v in negative_label_statistics.items() if k != "O"])
 
             df = pd.DataFrame({
                 "label": labels,
@@ -131,3 +138,12 @@ class WandbLogger(TrainerPlugin):
             "emit_alerts": self.emit_alerts,
             "alert_level": self.alert_level,
         }
+
+    @staticmethod
+    def format_output_key(key):
+        if isinstance(key, tuple):
+            # Join tuple elements with underscore and replace spaces
+            return "_".join(str(item).replace(" ", "_") for item in key)
+        else:
+            # For non-tuple keys, just replace spaces with underscores
+            return str(key).replace(" ", "_")
