@@ -14,6 +14,8 @@ from contrastner.wandb_logger import WandbLogger
 
 def finetuning_training_loop():
     SEED = random.randint(0, 1000)
+    wandb.define_metric("seed")
+    wandb.log({"seed": SEED})
     flair.set_seed(SEED)
     np.random.seed(SEED)
     random.seed(SEED)

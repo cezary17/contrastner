@@ -316,3 +316,6 @@ model_output/
 
 .DS_Store
 micromamba/
+analysis/artifacts/
+analysis/data/
+analysis/output_figs/

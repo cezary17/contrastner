@@ -31,6 +31,7 @@ def parse_training_arguments():
     parser = argparse.ArgumentParser()
     # run settings
     parser.add_argument("--sweep", action="store_true")
+    parser.add_argument("--device", type=str, default="0")
     # experiment settings
     parser.add_argument("--dataset", type=str, default="CONLL03")
     parser.add_argument("--transformer_model", type=str, default="bert-base-uncased")
@@ -84,10 +85,10 @@ def sweep_config(args: argparse.Namespace):
         "metric": {"goal": "maximize", "name": "test_score"},
         "parameters": {
             "dummy": {
-                "values": np.arange(0, 20).tolist()
+                "values": np.arange(0, 10).tolist()
             },
             "run_type": {
-                "value": "contrastive"
+                "value": "baseline"
             },
             "neg_o_prob": {
                 "value": 0.0
@@ -102,13 +103,13 @@ def sweep_config(args: argparse.Namespace):
                 "value": 50
             },
             "k_shot_num": {
-                "value": 8
+                "values": [3, 5, 10, 20, 50]
             },
             "learning_rate": {
                 "value": 1e-4
             },
             "batch_size": {
-                "value": 64
+                "value": 32
             },
             "filtering_cutoff": {
                 "value": args.filtering_cutoff
@@ -117,10 +118,10 @@ def sweep_config(args: argparse.Namespace):
                 "value": args.shuffle_dataset
             },
             "dataset": {
-                "values": "CONLL03"
+                "values": ["CONLL03", "NER_ENGLISH_RESTAURANT"]
             },
             "transformer_model": {
-                "values": ["bert-base-uncased", "bert-base-cased"]
+                "value": "bert-base-uncased"
             },
             "tag_type": {
                 "value": args.tag_type

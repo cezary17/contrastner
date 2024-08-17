@@ -7,7 +7,6 @@ from typing import List, Tuple, Dict
 
 import flair
 import torch
-import wandb
 from flair.data import Dictionary, DT, Token, Label
 from flair.embeddings import TokenEmbeddings
 from flair.models import TokenClassifier
@@ -85,9 +84,6 @@ class SFTokenClassifier(TokenClassifier):
             "anchors": defaultdict(int),
             "negatives": defaultdict(int)
         }
-
-
-
 
     @property
     def label_statistics(self) -> Dict[str, Dict[str, int]]:
@@ -253,7 +249,7 @@ class SFTokenClassifier(TokenClassifier):
 
             for current_anchor_idx, current_anchor_tup in enumerate(tensor_list):
                 anchor_label = entity
-                anchor_tensor = current_anchor_tup[1]
+                anchor_tensor = current_anchor_tup[1]  # 1 to get the tensor and not the meta info
 
                 log.debug(f"Making triplets for label {anchor_label}")
 
@@ -269,10 +265,10 @@ class SFTokenClassifier(TokenClassifier):
                 else:
                     possible_neg_labels = [
                         label for label in relevant_labels if (
-                            label != anchor_label and
-                            len(labels_dict[label]) > 0 and
-                            label != "O"
-                    )]
+                                label != anchor_label and
+                                len(labels_dict[label]) > 0 and
+                                label != "O"
+                        )]
                     log.debug(f"Contrasting with {possible_neg_labels}")
 
                 # should be fixed by filtering the dataset now but can never be too safe
@@ -283,11 +279,11 @@ class SFTokenClassifier(TokenClassifier):
 
                 self._label_statistics["negatives"][negative_label] += 1
 
-                negative_tensor = choice(labels_dict[negative_label])[1]
+                negative_tensor = choice(labels_dict[negative_label])[1]  # 1 to get the tensor and not the meta info
 
                 # any entity sharing label with anchor without same index
                 available_positives = tensor_list[:current_anchor_idx] + tensor_list[current_anchor_idx + 1:]
-                positive_tensor = choice(available_positives)[1]
+                positive_tensor = choice(available_positives)[1]  # 1 to get the tensor and not the meta info
 
                 triplets.extend(self._make_loss_triplets(anchor_tensor, positive_tensor, negative_tensor))
 
@@ -303,11 +299,13 @@ class SFTokenClassifier(TokenClassifier):
 
         return first_tensor, second_tensor, third_tensor
 
-    def _make_loss_triplets(self, anchor: torch.Tensor, positive: torch.Tensor, negative: torch.Tensor) -> List[TRIPLET]:
+    def _make_loss_triplets(self, anchor: torch.Tensor, positive: torch.Tensor, negative: torch.Tensor) -> List[
+        TRIPLET]:
         if self.loss_used == "tml":
             return [(anchor, positive, negative)]
         elif self.loss_used == "cel":
-            return [(anchor, positive, torch.ones(1, device=flair.device)), (anchor, negative, -torch.ones(1, device=flair.device))]
+            return [(anchor, positive, torch.ones(1, device=flair.device)),
+                    (anchor, negative, -torch.ones(1, device=flair.device))]
         else:
             raise NotImplementedError(f"Handling {self.loss_function} is not implemented")
 
@@ -336,4 +334,3 @@ class SFTokenClassifier(TokenClassifier):
                 bio_labels.append(label)
 
         return list(set(bio_labels))
-

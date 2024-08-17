@@ -1,5 +1,7 @@
 import logging
 
+import torch
+import flair
 import wandb
 
 from contrastner.utils import parse_training_arguments, sweep_config, init_wandb_logger
@@ -12,27 +14,9 @@ log = logging.getLogger("flair")
 
 def train_full():
     init_wandb_logger(args, workflow="full")
+    flair.device = torch.device(f"cuda:{args.device}")
     contrastive_training_loop()
     finetuning_training_loop()
-
-
-def train_full_sweep():
-    with wandb.init() as run:
-        if wandb.config.run_type == "baseline":
-            log.info("Running baseline training")
-            baseline_train_loop()
-        elif wandb.config.run_type == "contrastive":
-            log.info("Running contrastive training")
-            contrastive_training_loop()
-            finetuning_training_loop()
-        else:
-            raise ValueError(f"Unknown run type: {wandb.config.run_type}")
-
-
-def train_full_sweep_dbg():
-    with wandb.init() as run:
-        contrastive_training_loop()
-        finetuning_training_loop()
 
 
 if __name__ == "__main__":

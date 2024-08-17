@@ -22,8 +22,12 @@ def generate_classification_heatmap(data: dict) -> Image.Image:
     # Create the heatmap
     fig, ax = plt.subplots()
     fig.set_size_inches(14, 7)
-    heatmap = ax.pcolor(data_array, cmap=sns.color_palette("magma", as_cmap=True)
-                        )
+    heatmap = ax.pcolor(
+        data_array,
+        cmap=sns.color_palette("magma", as_cmap=True),
+        vmin=np.min(data_array) - 0.15,
+        vmax=np.max(data_array) + 0.15
+    )
 
     # Add labels and title
     ax.set_xticks(np.arange(len(labels)) + 0.5)

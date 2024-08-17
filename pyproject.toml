@@ -13,7 +13,7 @@ pandas = "^2.2.2"
 matplotlib = "^3.9.1"
 seaborn = "^0.13.2"
 altair = "^5.3.0"
-wandb = "^0.17.5"
+wandb = {extras = ["importers"], version = "^0.17.6"}
 transformers = "^4.43.3"
 datasets = "^2.20.0"
 plotly = "^5.23.0"
