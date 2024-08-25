@@ -7,7 +7,7 @@ from flair.embeddings import TransformerWordEmbeddings
 
 from contrastner.analysis.sentence_logger import log_selected_sentences
 from contrastner.dataset import KShotCounter
-from contrastner.modeling import SFTokenClassifier
+from contrastner.modeling_contrastner import ContrastNERTokenClassifier
 from contrastner.trainers import ModelTrainer
 from contrastner.utils import select_corpus, parse_training_arguments, init_wandb_logger, GLOBAL_PATHS
 from contrastner.wandb_logger import WandbLogger
@@ -51,7 +51,7 @@ def contrastive_training_loop():
     label_dictionary = corpus.make_label_dictionary(label_type="ner")
     contrast_filtering_method = wandb.config.contrast_filtering_method
 
-    model = SFTokenClassifier(
+    model = ContrastNERTokenClassifier(
         embeddings=embeddings,
         label_dictionary=label_dictionary,
         label_type="ner",

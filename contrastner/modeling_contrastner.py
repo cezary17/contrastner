@@ -38,7 +38,7 @@ class FilterNotImplementedError(Exception):
     pass
 
 
-class SFTokenClassifier(TokenClassifier):
+class ContrastNERTokenClassifier(TokenClassifier):
 
     def __init__(
             self,
