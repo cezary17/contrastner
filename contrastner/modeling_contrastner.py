@@ -45,7 +45,7 @@ class ContrastNERTokenClassifier(TokenClassifier):
             embeddings: TokenEmbeddings,
             label_dictionary: Dictionary,
             label_type: str,
-            span_encoding: str = "BIOES",
+            span_encoding: str = "BIO",
             contrast_filtering_method: str = "no-o",
             neg_o_prob: float = 0.2,
             loss_function: str = "TripletMarginLoss",
@@ -92,7 +92,8 @@ class ContrastNERTokenClassifier(TokenClassifier):
     def forward_loss(self, sentences: List[DT]) -> Tuple[torch.Tensor, int]:
         # make a forward pass to produce embedded data points and labels
         sentences = [
-            sentence for sentence in sentences if self._filter_data_point(sentence)]
+            sentence for sentence in sentences if self._filter_data_point(sentence)
+        ]
 
         # get the data points for which to predict labels
         data_points = self._get_data_points_for_batch(sentences)
