@@ -131,7 +131,7 @@ class ContrastNERTokenClassifier(TokenClassifier):
         """
         label_val = label.value
 
-        # labels have to start with "S" or "I" followed by "-" followed by the label itself
+        # remove positional information from label
         if label_val != "O":
             label_val = label_val.split("-", maxsplit=1)[-1]
 
